@@ -1,0 +1,272 @@
+//! Repository round-trips against a scratch database.
+//!
+//! Needs a Postgres the tests may write to:
+//!     createdb resume_fixer_test
+//!     TEST_DATABASE_URL=postgresql://localhost/resume_fixer_test cargo test --test db
+//!
+//! Without that variable every test here reports itself skipped rather than failing, so
+//! `cargo test` stays green on a machine with no server running.
+
+use chrono::NaiveDate;
+use resume_fixer_lib::db;
+use resume_fixer_lib::domain::*;
+use sqlx::PgPool;
+use uuid::Uuid;
+
+async fn pool() -> Option<PgPool> {
+    let url = std::env::var("TEST_DATABASE_URL").ok()?;
+    let pool = db::pool::lazy(&url).expect("pool builds");
+    db::pool::migrate(&pool).await.expect("migrations run");
+    Some(pool)
+}
+
+macro_rules! db_test {
+    ($pool:ident) => {
+        match pool().await {
+            Some(p) => p,
+            None => {
+                eprintln!("skipped: TEST_DATABASE_URL is not set");
+                return;
+            }
+        }
+    };
+}
+
+/// Builds an isolated experience → role → bullet tree and returns its ids.
+async fn seed_tree(pool: &PgPool, org: &str) -> (Uuid, Uuid, Uuid) {
+    let experience = db::experience::upsert(
+        pool,
+        &ExperienceInput {
+            id: None,
+            kind: ExperienceKind::Work,
+            org_name: org.into(),
+            location: Some("Remote".into()),
+            url: None,
+            tech_line: None,
+            display_order: 99,
+            is_active: true,
+        },
+    )
+    .await
+    .expect("experience inserts");
+
+    let role = db::role::upsert(
+        pool,
+        &RoleInput {
+            id: None,
+            experience_id: experience.id,
+            title: "Software Engineering Intern".into(),
+            location: None,
+            start_date: NaiveDate::from_ymd_opt(2026, 6, 1).unwrap(),
+            end_date: None,
+            date_override: None,
+            display_order: 0,
+            is_active: true,
+        },
+    )
+    .await
+    .expect("role inserts");
+
+    let bullet = db::bullet::upsert(
+        pool,
+        &BulletInput {
+            id: None,
+            role_id: role.id,
+            text: "Built a thing that measurably improved another thing by 25%.".into(),
+            display_order: 0,
+            is_active: true,
+        },
+    )
+    .await
+    .expect("bullet inserts");
+
+    (experience.id, role.id, bullet.id)
+}
+
+#[tokio::test]
+async fn a_full_experience_tree_round_trips() {
+    let pool = db_test!(pool);
+    let org = format!("Round Trip {}", Uuid::new_v4());
+    let (experience_id, role_id, bullet_id) = seed_tree(&pool, &org).await;
+
+    db::skill::set_bullet_skills(&pool, bullet_id, &["Rust".into(), "PostgreSQL".into()])
+        .await
+        .expect("tags save");
+    db::skill::set_experience_skills(&pool, experience_id, &["Rust".into()])
+        .await
+        .expect("experience tags save");
+
+    let details = db::experience::list_details(&pool)
+        .await
+        .expect("read back");
+    let mine = details
+        .iter()
+        .find(|d| d.experience.id == experience_id)
+        .expect("the experience comes back");
+
+    assert_eq!(mine.experience.org_name, org);
+    assert_eq!(mine.skills.len(), 1);
+    assert_eq!(mine.roles.len(), 1);
+    assert_eq!(mine.roles[0].role.id, role_id);
+    assert_eq!(mine.roles[0].bullets.len(), 1);
+    let tags: Vec<&str> = mine.roles[0].bullets[0]
+        .skills
+        .iter()
+        .map(|s| s.slug.as_str())
+        .collect();
+    assert!(
+        tags.contains(&"rust") && tags.contains(&"postgresql"),
+        "{tags:?}"
+    );
+
+    db::experience::delete(&pool, experience_id)
+        .await
+        .expect("delete");
+}
+
+#[tokio::test]
+async fn deleting_an_experience_cascades_to_roles_and_bullets() {
+    let pool = db_test!(pool);
+    let (experience_id, role_id, bullet_id) =
+        seed_tree(&pool, &format!("Cascade {}", Uuid::new_v4())).await;
+
+    db::experience::delete(&pool, experience_id)
+        .await
+        .expect("delete");
+
+    assert!(db::bullet::get(&pool, bullet_id).await.is_err());
+    let orphan_roles: i64 = sqlx::query_scalar("SELECT count(*) FROM roles WHERE id = $1")
+        .bind(role_id)
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+    assert_eq!(orphan_roles, 0);
+}
+
+#[tokio::test]
+async fn a_bullet_cited_by_a_resume_cannot_be_deleted() {
+    let pool = db_test!(pool);
+    let (experience_id, _, bullet_id) =
+        seed_tree(&pool, &format!("Provenance {}", Uuid::new_v4())).await;
+
+    let application = db::application::create(
+        &pool,
+        None,
+        Some("Acme"),
+        Some("Intern"),
+        "a job description long enough to look real",
+        JobSource::Pasted,
+        &serde_json::json!({}),
+        ApplicationStatus::Applied,
+    )
+    .await
+    .expect("application inserts");
+
+    let used = vec![UsedBullet {
+        bullet_id,
+        source_text: "source".into(),
+        rendered_text: "rendered".into(),
+        was_reworded: false,
+        org_name: "Acme".into(),
+    }];
+    db::resume::insert(
+        &pool,
+        application.id,
+        "\\documentclass{article}",
+        None,
+        "fixture",
+        "test",
+        None,
+        1,
+        &used,
+    )
+    .await
+    .expect("resume inserts");
+
+    // ON DELETE RESTRICT: provenance outranks tidying up the vault.
+    assert!(db::bullet::delete(&pool, bullet_id).await.is_err());
+
+    db::application::delete(&pool, application.id)
+        .await
+        .expect("delete application");
+    db::experience::delete(&pool, experience_id)
+        .await
+        .expect("delete experience");
+}
+
+#[tokio::test]
+async fn a_status_change_is_stamped_once_and_recorded_every_time() {
+    let pool = db_test!(pool);
+    let application = db::application::create(
+        &pool,
+        None,
+        Some("History Co"),
+        None,
+        "another job description",
+        JobSource::Pasted,
+        &serde_json::json!({}),
+        ApplicationStatus::Saved,
+    )
+    .await
+    .expect("application inserts");
+
+    db::application::set_status(&pool, application.id, ApplicationStatus::Applied)
+        .await
+        .unwrap();
+    let after_apply = db::application::get_detail(&pool, application.id)
+        .await
+        .unwrap();
+    let applied_at = after_apply
+        .application
+        .applied_at
+        .expect("applied stamps a date");
+
+    db::application::set_status(&pool, application.id, ApplicationStatus::Rejected)
+        .await
+        .unwrap();
+    let after_reject = db::application::get_detail(&pool, application.id)
+        .await
+        .unwrap();
+
+    assert_eq!(after_reject.application.status, ApplicationStatus::Rejected);
+    assert_eq!(
+        after_reject.application.applied_at,
+        Some(applied_at),
+        "a later status must not move the sent date"
+    );
+    assert_eq!(after_reject.history.len(), 3, "saved, applied, rejected");
+
+    db::application::delete(&pool, application.id)
+        .await
+        .unwrap();
+}
+
+#[tokio::test]
+async fn skills_upsert_by_slug_not_by_display_name() {
+    let pool = db_test!(pool);
+    let a = db::skill::upsert_by_name(&pool, "Node.js").await.unwrap();
+    let b = db::skill::upsert_by_name(&pool, "node js").await.unwrap();
+    assert_eq!(a.id, b.id, "the same slug must not create two rows");
+    assert_eq!(a.slug, "node-js");
+}
+
+#[tokio::test]
+async fn the_seed_migration_left_a_usable_vault() {
+    let pool = db_test!(pool);
+    let profile = db::profile::get(&pool)
+        .await
+        .unwrap()
+        .expect("seeded profile");
+    assert!(!profile.full_name.is_empty());
+
+    let candidates = db::bullet::candidates(&pool).await.unwrap();
+    assert!(
+        candidates.len() >= 13,
+        "seeded bullets are retrievable: {}",
+        candidates.len()
+    );
+    assert!(
+        candidates.iter().any(|c| !c.skills.is_empty()),
+        "seeded bullets carry skill tags"
+    );
+}

@@ -1,0 +1,94 @@
+//! Resolving free text to a skill row.
+//!
+//! Matching is by `slug` plus `aliases`, always case-folded. `skills.name` is a display
+//! string and is never matched on.
+
+use crate::db::skill::slugify;
+use crate::domain::Skill;
+use std::collections::HashMap;
+
+pub struct SkillIndex {
+    /// slug-or-alias, case-folded -> canonical slug
+    by_key: HashMap<String, String>,
+    /// canonical slug -> display name
+    names: HashMap<String, String>,
+}
+
+impl SkillIndex {
+    pub fn new(skills: &[Skill]) -> Self {
+        let mut by_key = HashMap::new();
+        let mut names = HashMap::new();
+        for s in skills {
+            by_key.insert(s.slug.clone(), s.slug.clone());
+            by_key.insert(slugify(&s.name), s.slug.clone());
+            for a in &s.aliases {
+                by_key.insert(slugify(a), s.slug.clone());
+            }
+            names.insert(s.slug.clone(), s.name.clone());
+        }
+        SkillIndex { by_key, names }
+    }
+
+    /// The canonical slug for a typed or model-supplied name, if the vault knows it.
+    pub fn resolve(&self, text: &str) -> Option<&str> {
+        self.by_key.get(&slugify(text)).map(String::as_str)
+    }
+
+    /// The user's own spelling of a skill, for printing on the resume.
+    pub fn display(&self, slug: &str) -> Option<&str> {
+        self.names.get(slug).map(String::as_str)
+    }
+
+    /// Resolves a list of names to canonical slugs, dropping what the vault does not have.
+    pub fn resolve_all<'a>(&self, names: impl IntoIterator<Item = &'a str>) -> Vec<String> {
+        let mut out: Vec<String> = Vec::new();
+        for n in names {
+            if let Some(slug) = self.resolve(n) {
+                if !out.iter().any(|s| s == slug) {
+                    out.push(slug.to_string());
+                }
+            }
+        }
+        out
+    }
+}
+
+#[cfg(test)]
+pub fn test_skills(pairs: &[(&str, &[&str])]) -> Vec<Skill> {
+    pairs
+        .iter()
+        .map(|(name, aliases)| Skill {
+            id: uuid::Uuid::new_v4(),
+            name: name.to_string(),
+            slug: slugify(name),
+            category: None,
+            aliases: aliases.iter().map(|a| a.to_string()).collect(),
+        })
+        .collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn aliases_and_casing_resolve_to_one_slug() {
+        let skills = test_skills(&[("PostgreSQL", &["postgres", "psql", "pg"])]);
+        let idx = SkillIndex::new(&skills);
+        assert_eq!(idx.resolve("Postgres"), Some("postgresql"));
+        assert_eq!(idx.resolve("POSTGRESQL"), Some("postgresql"));
+        assert_eq!(idx.resolve("pg"), Some("postgresql"));
+        assert_eq!(idx.resolve("MySQL"), None);
+        assert_eq!(idx.display("postgresql"), Some("PostgreSQL"));
+    }
+
+    #[test]
+    fn unknown_names_are_dropped_not_invented() {
+        let skills = test_skills(&[("Python", &[]), ("Java", &[])]);
+        let idx = SkillIndex::new(&skills);
+        assert_eq!(
+            idx.resolve_all(["Python", "Rust", "java"]),
+            ["python", "java"]
+        );
+    }
+}

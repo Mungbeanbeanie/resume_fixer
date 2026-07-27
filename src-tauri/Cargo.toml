@@ -1,0 +1,39 @@
+[package]
+name = "resume-fixer"
+version = "0.1.0"
+description = "Local-first ATS resume tailoring"
+authors = ["Michael Chung"]
+edition = "2021"
+
+[lib]
+name = "resume_fixer_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = ["protocol-asset"] }
+tauri-plugin-opener = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "process", "fs"] }
+sqlx = { version = "0.8", default-features = false, features = [
+    "runtime-tokio",
+    "tls-rustls",
+    "postgres",
+    "chrono",
+    "uuid",
+    "json",
+    "migrate",
+    "macros",
+] }
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
+scraper = "0.23"
+tera = { version = "1", default-features = false }
+chrono = { version = "0.4", features = ["serde"] }
+uuid = { version = "1", features = ["v4", "serde"] }
+thiserror = "2"
+tracing = "0.1"
+tracing-subscriber = "0.3"
+toml = "0.9"

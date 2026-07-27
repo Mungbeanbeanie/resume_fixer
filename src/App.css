@@ -1,0 +1,237 @@
+.app {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.tabs {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 10px 20px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.tabs .brand {
+  font-weight: 600;
+  margin-right: 16px;
+  letter-spacing: -0.01em;
+}
+
+.tabs button {
+  border-color: transparent;
+  background: transparent;
+  color: var(--muted);
+}
+
+.tabs button[aria-current="true"] {
+  color: var(--text);
+  background: var(--accent-soft);
+}
+
+.tabs .spacer {
+  flex: 1;
+}
+
+.health {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.page {
+  flex: 1;
+  overflow: auto;
+  padding: 28px 20px 60px;
+}
+
+.page-inner {
+  max-width: 940px;
+  margin: 0 auto;
+}
+
+/* ── Generate ─────────────────────────────────────────────── */
+
+.generate-empty {
+  max-width: 620px;
+  margin: 12vh auto 0;
+  text-align: center;
+}
+
+.generate-empty h2 {
+  font-size: 20px;
+  font-weight: 500;
+  margin-bottom: 20px;
+}
+
+.generate-empty .row {
+  align-items: stretch;
+}
+
+.status-line {
+  text-align: center;
+  color: var(--muted);
+  margin-top: 24px;
+}
+
+.preview {
+  width: 100%;
+  height: 70vh;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.disclosure {
+  border-top: 1px solid var(--border);
+  padding-top: 12px;
+  margin-top: 16px;
+}
+
+.disclosure summary {
+  cursor: pointer;
+  color: var(--muted);
+}
+
+.bullet-list {
+  margin: 10px 0 0;
+  padding-left: 18px;
+}
+
+.bullet-list li {
+  margin-bottom: 6px;
+}
+
+/* ── Library ──────────────────────────────────────────────── */
+
+table.apps {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+table.apps th {
+  text-align: left;
+  font-weight: 500;
+  color: var(--muted);
+  font-size: 12px;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--border);
+}
+
+table.apps td {
+  padding: 9px 10px;
+  border-bottom: 1px solid var(--border);
+  vertical-align: middle;
+}
+
+table.apps tbody tr:hover {
+  background: var(--surface);
+  cursor: pointer;
+}
+
+.panel {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: min(520px, 90vw);
+  background: var(--surface);
+  border-left: 1px solid var(--border);
+  padding: 20px;
+  overflow: auto;
+  z-index: 10;
+}
+
+.job-text {
+  white-space: pre-wrap;
+  font-size: 13px;
+  max-height: 40vh;
+  overflow: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 10px;
+  background: var(--bg);
+}
+
+/* ── Vault ────────────────────────────────────────────────── */
+
+.experience {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  margin-bottom: 10px;
+}
+
+.experience > summary {
+  padding: 12px 16px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.experience .body {
+  padding: 0 16px 16px;
+  border-top: 1px solid var(--border);
+}
+
+.role {
+  padding: 12px 0;
+  border-bottom: 1px dashed var(--border);
+}
+
+.role:last-child {
+  border-bottom: none;
+}
+
+.bullet {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  margin-top: 8px;
+}
+
+.bullet textarea {
+  min-height: 52px;
+}
+
+.tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-top: 4px;
+}
+
+.field-label {
+  font-size: 12px;
+  color: var(--muted);
+  display: block;
+  margin-bottom: 3px;
+}
+
+.grid-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--gap);
+}
+
+.grid-4 {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--gap);
+}
+
+.empty {
+  text-align: center;
+  color: var(--muted);
+  padding: 40px 0;
+}
+
+.error {
+  border: 1px solid var(--danger);
+  border-radius: var(--radius);
+  padding: 10px 12px;
+  color: var(--danger);
+  background: #fdf6f5;
+}
