@@ -1,0 +1,187 @@
+%-------------------------
+% Resume in Latex
+% Author : Jake Gutierrez
+% Based off of: https://github.com/sb2nov/resume
+% License : MIT
+%------------------------
+
+\documentclass[letterpaper,11pt]{article}
+
+\usepackage{latexsym}
+\usepackage[empty]{fullpage}
+\usepackage{titlesec}
+\usepackage{marvosym}
+\usepackage[usenames,dvipsnames]{color}
+\usepackage{verbatim}
+\usepackage{enumitem}
+\usepackage[hidelinks]{hyperref}
+\usepackage{fancyhdr}
+\usepackage[english]{babel}
+\newcommand{\resumeSubheadingListEnd}{\end{itemize}}
+\usepackage{tabularx}
+\input{glyphtounicode}
+
+
+\pagestyle{fancy}
+\fancyhf{} % clear all header and footer fields
+\fancyfoot{}
+\renewcommand{\headrulewidth}{0pt}
+\renewcommand{\footrulewidth}{0pt}
+
+% Adjust margins
+\addtolength{\oddsidemargin}{-0.5in}
+\addtolength{\evensidemargin}{-0.5in}
+\addtolength{\textwidth}{1in}
+\addtolength{\topmargin}{-.5in}
+\addtolength{\textheight}{1.2in}
+
+\urlstyle{same}
+
+\raggedbottom
+\raggedright
+\setlength{\tabcolsep}{0in}
+
+% Sections formatting
+\titleformat{\section}{
+  \vspace{-4pt}\scshape\raggedright\large
+}{}{0em}{}[\color{black}\titlerule \vspace{-5pt}]
+
+% Ensure that generate pdf is machine readable/ATS parsable
+\pdfgentounicode=1
+
+%-------------------------
+% Custom commands
+\newcommand{\resumeItem}[1]{
+  \item\small{
+    {#1 \vspace{-2pt}}
+  }
+}
+
+\newcommand{\resumeSubheading}[4]{
+  \vspace{-2pt}\item
+    \begin{tabular*}{0.97\textwidth}[t]{l@{\extracolsep{\fill}}r}
+      \textbf{#1} & #2 \\
+      \textit{\small#3} & \textit{\small #4} \\
+    \end{tabular*}\vspace{-7pt}
+}
+
+\newcommand{\resumeSubSubheading}[2]{
+    \item
+    \begin{tabular*}{0.97\textwidth}{l@{\extracolsep{\fill}}r}
+      \textit{\small#1} & \textit{\small #2} \\
+    \end{tabular*}\vspace{-7pt}
+}
+
+\newcommand{\resumeProjectHeading}[2]{
+    \item
+    \begin{tabular*}{0.97\textwidth}{l@{\extracolsep{\fill}}r}
+      \small#1 & #2 \\
+    \end{tabular*}\vspace{-7pt}
+}
+
+\newcommand{\resumeSubItem}[1]{\resumeItem{#1}\vspace{-4pt}}
+
+\renewcommand\labelitemii{$\vcenter{\hbox{\tiny$\bullet$}}$}
+
+\newcommand{\resumeSubHeadingListStart}{\begin{itemize}[leftmargin=0.15in, label={}]}
+\newcommand{\resumeSubHeadingListEnd}{\end{itemize}}
+\newcommand{\resumeItemListStart}{\begin{itemize}}
+\newcommand{\resumeItemListEnd}{\end{itemize}\vspace{-5pt}}
+
+%-------------------------------------------
+%%%%%%  RESUME STARTS HERE  %%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+\begin{document}
+
+%----------HEADING----------
+\begin{center}
+    \textbf{\Huge \scshape Michael Chung} \\ \vspace{1pt}
+    \small (571) 491-5056 $|$ \href{mailto:mychung007@gmail.com}{\underline{mychung007@gmail.com}} $|$
+    \href{https://linkedin.com/in/michaelchung07}{\underline{linkedin.com/in/michaelchung07}} $|$ {\underline{\href{https://devpost.com/hcz6jh528}{github.com/Mungbeanbeanie}}}
+\end{center}
+
+
+%-----------EDUCATION-----------
+\section{Education}
+  \resumeSubHeadingListStart
+    \resumeSubheading
+      {University of Virginia}{Charlottesville, VA}
+      {Computer Science and Data Science}{Aug. 2025 -- May 2029}
+    \resumeItemListStart
+        \resumeItem{Relevant coursework: Data Structures \& Algorithms, Foundations of Data Science, Linear Algebra, Discrete Math, Software Development Essentials, Computer Systems and Organization}
+    \resumeItemListEnd
+    \resumeItem{
+        \textbf{Skills:}{ Claude, Agentic Development, Python, Java, SQL, Javascript, Swift, C, HTML/CSS, Linux, Node.js, Express.js, Next.js, SwiftUI, Firebase, Supabase, Git, Docker, AWS (EC2, Lambda), Nginx, Pandas, NumPy, Matplotlib, PyTorch}}
+  \resumeSubHeadingListEnd
+
+%-----------EXPERIENCE-----------
+\section{Experience}
+  \resumeSubHeadingListStart
+
+    \resumeSubheading
+      {Rajant Health}{Malvern, PA}
+      {Software Engineering Intern}{June 2026 -- Aug. 2026}
+      \resumeItemListStart
+        \resumeItem{Designed semantic embedding based algorithms to ensure deduplication, provenance, incremental integration, and human-in-the-loop processes in agentic database consolidation, influencing production agentic architecture design}
+        \resumeItem{Developed Backend-For-Frontend architecture in Python, linking hardware sensor data with a third party proprietary API, allowing modular and secure data transfer through PostrgeSQL and InfluxDB}
+      \resumeItemListEnd
+      \resumeSubSubheading{Computer Engineering Intern}{July 2025 -- Aug. 2025}
+        \resumeItemListStart
+        \resumeItem{Delivered proof-of-concept validating next-generation hardware platform (NXP MIMXRT595), directly influencing strategic decision to deprecate legacy hardware}
+        \resumeItem{Implemented lock-free UART data pipeline using ring buffers sustaining 460 kbps continuous transfer for real-time PPG sensor data ingestion; designed 2D renderer with DMA-powered updates achieving under 15ms frame latency}
+      \resumeItemListEnd
+
+    \resumeSubheading
+      {UVA School of Data Science}{Charlottesville, VA}
+      {Undergraduate Research Assistant}{Jan. 2026 -- May 2026}
+      \resumeItemListStart
+        \resumeItem{Engineered data pipelines in Python (Pandas, NumPy) to analyze satellite launch datasets across LEO/MEO/GEO regimes, presented paper at IEEE SIEDS '26: \emph{Decision Support for Resilient Foundation Model Scaling in Orbital Computing Systems }}
+        \resumeItem{Identified that communications satellites account for approximately 60\% of recent payloads with technology satellites at 3--5\%, informing assumption-based projection models (exponential, logistic, quadratic) for computation-capable orbital infrastructure}
+      \resumeItemListEnd
+
+    \resumeSubheading
+      {Talent Skincare}{Remote}
+      {Digital Marketing \& Analytics Intern}{Aug. 2025 -- Dec. 2025}
+      \resumeItemListStart
+        \resumeItem{Built serverless Python function (AWS Lambda) integrated with Monday.com API to automate Amazon Ads campaign data extraction, eliminating manual reporting workflows}
+    \resumeItemListEnd
+
+  \resumeSubHeadingListEnd
+
+
+%-----------PROJECTS-----------
+\section{Projects}
+    \resumeSubHeadingListStart
+      \resumeProjectHeading
+          {\textbf{Sniped -- Gamified Social Network (iOS)} $|$ \emph{PostgreSQL, Node.js, Express, Docker, AWS}}{Dec. 2025 -- Mar. 2026}
+          \resumeItemListStart
+            \resumeItem{Designed and deployed RESTful API (20+ endpoints) on AWS EC2 with Docker, Nginx reverse proxy, and automated CI/CD via GitLab pipelines}
+            \resumeItem{Implemented JWT authentication with Row-Level Security across 10+ PostgreSQL tables, including dual-client authorization pattern for service-role vs. public access}
+            \resumeItem{Approved on Apple TestFlight and tested by 20+ beta users}
+          \resumeItemListEnd
+
+      \resumeProjectHeading
+          {\textbf{Microsoft Garage -- Network Vulnerability Tool} $|$ \emph{JavaScript, Firebase, Node.js}}{Jan. 2025 -- March 2025}
+          \resumeItemListStart
+            \resumeItem{Developed front-end interface and Firebase data pipeline for network vulnerability detection tool; integrated ChatGPT API for vulnerability analysis, optimizing performance and cost for constrained environments}
+          \resumeItemListEnd
+
+      \resumeProjectHeading
+            {\textbf{PoliDex -- Political Alignment Engine} $|$ \emph{Python, Java, Next.js, React, TypeScript, MongoDB}}{Apr. 2026}
+            \resumeItemListStart
+            \resumeItem{Built and shipped political alignment engine in 24 hours; scores politicians across a 20-dimensional policy vector space using a custom variance-weighted cosine similarity formula, a Java/Python/Next.js architecture, and a k-d tree index for sublinear 20D nearest-neighbor search---won Best Use of MongoDB Atlas at Hackabull VII}
+            \resumeItemListEnd
+
+    \resumeSubheadingListEnd
+
+%-----------Certifications-----------
+\section{Certifications}
+\begin{itemize}[leftmargin=0.15in, label={}]
+    \small{\item{
+     CompTIA Security+ $|$ AWS Certified Cloud Practitioner $|$ Microsoft Azure Fundamentals $|$ ITS: Artificial Intelligence
+     }}
+\end{itemize}
+
+%-------------------------------------------
+\end{document}
