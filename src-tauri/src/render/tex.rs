@@ -9,9 +9,6 @@ use chrono::{Datelike, NaiveDate};
 use serde::Serialize;
 use tera::{Context, Tera};
 
-/// The generation template, compiled from the user's reference resume.
-pub const DEFAULT_TEMPLATE: &str = include_str!("../../../templates/resume.tex.tera");
-
 /// Escapes a plain-text string for LaTeX body text.
 ///
 /// Rejects nothing — every input is representable. The backslash is replaced first so the
@@ -110,6 +107,8 @@ pub struct RenderInput {
     pub skills_line: String,
     pub experience: Vec<ExperienceBlock>,
     pub projects: Vec<ProjectBlock>,
+    /// Printed only by templates that name `activities`; see `ResumePlan::prune_for`.
+    pub activities: Vec<ExperienceBlock>,
     pub certifications: Vec<String>,
 }
 
@@ -207,6 +206,14 @@ pub fn build_context(input: &RenderInput) -> Context {
             .collect::<Vec<_>>(),
     );
     ctx.insert(
+        "activities",
+        &input
+            .activities
+            .iter()
+            .map(escape_block)
+            .collect::<Vec<_>>(),
+    );
+    ctx.insert(
         "certifications",
         &input
             .certifications
@@ -227,6 +234,7 @@ pub fn render(template: &str, input: &RenderInput) -> Result<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::render::templates::{DEFAULT_TEMPLATE, SIMPLIFY_TEMPLATE};
 
     #[test]
     fn every_special_character_is_escaped() {
@@ -291,11 +299,35 @@ mod tests {
 
     #[test]
     fn empty_sections_emit_no_headers() {
-        let out = render(DEFAULT_TEMPLATE, &RenderInput::default()).unwrap();
-        assert!(!out.contains("\\section{Projects}"));
-        assert!(!out.contains("\\section{Certifications}"));
-        assert!(!out.contains("\\section{Experience}"));
-        assert!(out.contains("\\end{document}"));
+        for template in [DEFAULT_TEMPLATE, SIMPLIFY_TEMPLATE] {
+            let out = render(template, &RenderInput::default()).unwrap();
+            assert!(!out.contains("\\section{"), "bare section header in {out}");
+            assert!(out.contains("\\end{document}"));
+        }
+    }
+
+    /// The whole activities design rests on this: the same input prints an Activities
+    /// section under Simplify and nothing at all under Jake's.
+    #[test]
+    fn activities_print_only_where_the_template_has_a_section() {
+        let input = RenderInput {
+            activities: vec![ExperienceBlock {
+                org: "Intramural Ice Hockey".into(),
+                location: "Charlottesville, VA".into(),
+                roles: vec![RoleBlock {
+                    title: "Team Captain".into(),
+                    dates: "Jan. 2026 -- Present".into(),
+                    bullets: vec![],
+                }],
+            }],
+            ..Default::default()
+        };
+        let simplify = render(SIMPLIFY_TEMPLATE, &input).unwrap();
+        assert!(simplify.contains("\\section{Activities \\& Leadership}"));
+        assert!(simplify.contains("Intramural Ice Hockey"));
+
+        let jake = render(DEFAULT_TEMPLATE, &input).unwrap();
+        assert!(!jake.contains("Intramural Ice Hockey"));
     }
 
     #[test]

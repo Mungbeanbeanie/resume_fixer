@@ -1,8 +1,17 @@
 import { useCallback, useEffect, useState } from "react";
 import { errorMessage, vault } from "../../ipc";
-import type { ExperienceDetail, Profile } from "../../types";
+import type { ExperienceDetail, ExperienceKind, Profile } from "../../types";
 import ExperienceCard from "./ExperienceCard";
 import { VaultCtx } from "./vaultContext";
+
+// The order the vault reads in. Header Info is the profile card and has no kind.
+const SECTIONS: [ExperienceKind, string][] = [
+  ["education", "School"],
+  ["work", "Work Experience"],
+  ["project", "Projects"],
+  ["activity", "Activities / Leadership"],
+  ["certification", "Certifications"],
+];
 
 function ProfileCard({ profile, onSaved }: { profile: Profile; onSaved: (p: Profile) => void }) {
   const [draft, setDraft] = useState(profile);
@@ -124,12 +133,12 @@ export default function VaultTab() {
 
   const report = useCallback((e: unknown) => setError(errorMessage(e)), []);
 
-  async function addExperience() {
+  async function addExperience(kind: ExperienceKind) {
     try {
       await vault.upsertExperience({
         id: null,
-        kind: "work",
-        org_name: "New experience",
+        kind,
+        org_name: "New entry",
         location: null,
         url: null,
         tech_line: null,
@@ -146,26 +155,38 @@ export default function VaultTab() {
     <VaultCtx.Provider value={{ reload, report }}>
       <div className="col">
         {error && <div className="error">{error}</div>}
+
+        <h3 className="vault-section">Header Info</h3>
         {profile && <ProfileCard profile={profile} onSaved={setProfile} />}
 
         {loading ? (
           <div className="empty">Loading…</div>
-        ) : experiences.length === 0 ? (
-          <div className="empty">
-            The vault is empty. Add an experience — every resume line comes from here.
-          </div>
         ) : (
-          experiences.map((e) => <ExperienceCard key={e.id} detail={e} />)
+          SECTIONS.map(([kind, label]) => {
+            const inSection = experiences.filter((e) => e.kind === kind);
+            return (
+              <section key={kind} className="col">
+                <h3 className="vault-section">
+                  {label}
+                  <span className="muted">{inSection.length}</span>
+                </h3>
+                {inSection.map((e) => (
+                  <ExperienceCard key={e.id} detail={e} />
+                ))}
+                <div className="row">
+                  <button className="quiet" onClick={() => addExperience(kind)}>
+                    + add
+                  </button>
+                </div>
+              </section>
+            );
+          })
         )}
 
-        <div className="row">
-          <button className="primary" onClick={addExperience}>
-            + experience
-          </button>
-          <span className="muted" style={{ fontSize: 12 }}>
-            Edits save when a field loses focus.
-          </span>
-        </div>
+        <span className="muted" style={{ fontSize: 12 }}>
+          Edits save when a field loses focus. Move an entry between sections with its Kind
+          field.
+        </span>
       </div>
     </VaultCtx.Provider>
   );

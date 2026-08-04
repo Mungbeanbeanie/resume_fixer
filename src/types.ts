@@ -1,6 +1,11 @@
 // Mirrors src-tauri/src/domain.rs. Change one, change both in the same commit.
 
-export type ExperienceKind = "work" | "project" | "education" | "certification";
+export type ExperienceKind =
+  | "work"
+  | "project"
+  | "education"
+  | "certification"
+  | "activity";
 export type ApplicationStatus =
   | "saved"
   | "applied"
@@ -210,6 +215,30 @@ export interface GenerationResult {
   used_bullets: UsedBullet[];
   rejected: RejectedRewrite[];
   dropped_for_fit: number;
+}
+
+export interface Template {
+  id: string;
+  name: string;
+  source: string;
+  is_builtin: boolean;
+  is_active: boolean;
+}
+
+export interface BaseResume {
+  id: string;
+  name: string;
+  template_name: string;
+  pdf_path: string | null;
+  page_count: number | null;
+  created_at: string;
+}
+
+export interface BasePreview {
+  template_name: string;
+  pdf_path: string;
+  page_count: number;
+  bullet_count: number;
 }
 
 export interface HealthReport {

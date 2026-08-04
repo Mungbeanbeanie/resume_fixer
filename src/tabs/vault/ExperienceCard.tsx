@@ -4,7 +4,13 @@ import type { ExperienceDetail, ExperienceKind, RoleDetail } from "../../types";
 import BulletRow from "./BulletRow";
 import { useVault } from "./vaultContext";
 
-const KINDS: ExperienceKind[] = ["work", "project", "education", "certification"];
+const KINDS: ExperienceKind[] = [
+  "work",
+  "project",
+  "education",
+  "certification",
+  "activity",
+];
 
 function RoleBlock({ role }: { role: RoleDetail }) {
   const { reload, report } = useVault();

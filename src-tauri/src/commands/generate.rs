@@ -67,7 +67,7 @@ pub async fn generate_export_draft(
 }
 
 /// Strips anything that would let a name escape the output directory.
-fn safe_filename(name: &str) -> String {
+pub(crate) fn safe_filename(name: &str) -> String {
     let cleaned: String = name
         .chars()
         .map(|c| {

@@ -44,6 +44,7 @@ pub struct ResumePlan {
     pub education: Vec<PlanSection>,
     pub experience: Vec<PlanSection>,
     pub projects: Vec<PlanSection>,
+    pub activities: Vec<PlanSection>,
     pub certifications: Vec<String>,
     pub skills_line: Vec<String>,
 }
@@ -87,7 +88,20 @@ impl ResumePlan {
                         .collect(),
                 })
                 .collect(),
+            activities: self.activities.iter().map(to_block).collect(),
             certifications: self.certifications.clone(),
+        }
+    }
+
+    /// Drops the sections the template cannot print.
+    ///
+    /// A template prints a section only if it names the variable, so the source text is
+    /// the authority. Dropping here rather than at render time keeps provenance honest:
+    /// a bullet that was never printed is never recorded as used, and the fit loop never
+    /// gives up a bullet to make room for a section that is not there.
+    pub fn prune_for(&mut self, template: &str) {
+        if !template.contains("activities") {
+            self.activities.clear();
         }
     }
 
@@ -113,6 +127,7 @@ impl ResumePlan {
             .iter()
             .chain(self.experience.iter())
             .chain(self.projects.iter())
+            .chain(self.activities.iter())
     }
 
     pub fn bullet_count(&self) -> usize {
@@ -130,6 +145,7 @@ impl ResumePlan {
             .iter_mut()
             .chain(self.experience.iter_mut())
             .chain(self.projects.iter_mut())
+            .chain(self.activities.iter_mut())
             .filter(|s| s.bullet_count() > 1)
             .collect();
 
@@ -199,6 +215,25 @@ mod tests {
         };
         assert!(plan.drop_lowest().is_none());
         assert_eq!(plan.bullet_count(), 2);
+    }
+
+    #[test]
+    fn a_template_without_activities_neither_prints_nor_records_them() {
+        let mut plan = ResumePlan {
+            experience: vec![section("A", &[0.1])],
+            activities: vec![section("Ice Hockey", &[0.2])],
+            ..Default::default()
+        };
+        plan.prune_for("\\section{Experience} {% for e in experience %}");
+        assert!(plan.activities.is_empty());
+        assert_eq!(plan.used_bullets().len(), 1);
+
+        let mut plan = ResumePlan {
+            activities: vec![section("Ice Hockey", &[0.2])],
+            ..Default::default()
+        };
+        plan.prune_for("{% if activities %}\\section{Activities}{% endif %}");
+        assert_eq!(plan.used_bullets().len(), 1);
     }
 
     #[test]

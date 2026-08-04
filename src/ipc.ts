@@ -7,6 +7,8 @@ import type {
   ApplicationPatch,
   ApplicationStatus,
   ApplicationSummary,
+  BasePreview,
+  BaseResume,
   Bullet,
   BulletInput,
   Experience,
@@ -21,6 +23,7 @@ import type {
   Skill,
   StatusStats,
   Suggestion,
+  Template,
 } from "./types";
 
 /** True for anything the backend sent as a typed AppError. */
@@ -72,6 +75,21 @@ export const generate = {
     invoke<string>("generate_export_pdf", { resumeId, destPath }),
   exportDraft: (draftId: string, filename: string) =>
     invoke<string>("generate_export_draft", { draftId, filename }),
+};
+
+export const base = {
+  listTemplates: () => invoke<Template[]>("base_list_templates"),
+  saveTemplate: (name: string, source: string) =>
+    invoke<Template>("base_save_template", { name, source }),
+  setActiveTemplate: (id: string) => invoke<void>("base_set_active_template", { id }),
+  deleteTemplate: (id: string) => invoke<void>("base_delete_template", { id }),
+  render: (templateId?: string | null) =>
+    invoke<BasePreview>("base_render", { templateId: templateId ?? null }),
+  save: (name: string) => invoke<BaseResume>("base_save", { name }),
+  list: () => invoke<BaseResume[]>("base_list"),
+  remove: (id: string) => invoke<void>("base_delete", { id }),
+  exportPdf: (id: string, filename: string) =>
+    invoke<string>("base_export", { id, filename }),
 };
 
 export const library = {

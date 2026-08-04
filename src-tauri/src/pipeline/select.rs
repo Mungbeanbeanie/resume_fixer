@@ -171,6 +171,34 @@ pub fn deterministic(
     }
 }
 
+/// Every active bullet, verbatim — the base resume.
+///
+/// No posting, no model, so nothing is scored and nothing is reworded. Grounding does not
+/// apply: the text printed is the text stored.
+pub fn everything(
+    vault: &[ExperienceDetail],
+    profile: Option<Profile>,
+    skills_line: Vec<String>,
+) -> ResumePlan {
+    let chosen = vault
+        .iter()
+        .flat_map(|e| e.roles.iter())
+        .flat_map(|r| r.bullets.iter())
+        .filter(|b| b.bullet.is_active)
+        .map(|b| {
+            (
+                b.bullet.id,
+                Chosen {
+                    text: b.bullet.text.clone(),
+                    was_reworded: false,
+                    score: 0.0,
+                },
+            )
+        })
+        .collect();
+    assemble(chosen, vault, profile, skills_line)
+}
+
 /// Lays chosen bullets back over the vault's structure.
 ///
 /// Section and role order come from the vault, never from the model: the model chooses
@@ -198,6 +226,9 @@ fn assemble(
             continue;
         }
         let is_education = detail.experience.kind == ExperienceKind::Education;
+        // Activities are often a title and a date with nothing under them; an empty one is
+        // still worth printing, unlike a job with no bullets.
+        let keep_empty = is_education || detail.experience.kind == ExperienceKind::Activity;
         let mut roles = Vec::new();
         for role in &detail.roles {
             if !role.role.is_active {
@@ -232,7 +263,7 @@ fn assemble(
                     })
                     .collect();
             }
-            if bullets.is_empty() && !is_education {
+            if bullets.is_empty() && !keep_empty {
                 continue;
             }
             roles.push(PlanRole {
@@ -259,6 +290,7 @@ fn assemble(
             ExperienceKind::Education => plan.education.push(section),
             ExperienceKind::Work => plan.experience.push(section),
             ExperienceKind::Project => plan.projects.push(section),
+            ExperienceKind::Activity => plan.activities.push(section),
             ExperienceKind::Certification => unreachable!("handled above"),
         }
     }

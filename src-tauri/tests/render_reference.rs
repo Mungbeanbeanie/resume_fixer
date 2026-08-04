@@ -6,9 +6,8 @@
 
 use resume_fixer_lib::domain::{Link, Profile};
 use resume_fixer_lib::render::tectonic;
-use resume_fixer_lib::render::tex::{
-    ExperienceBlock, ProjectBlock, RenderInput, RoleBlock, DEFAULT_TEMPLATE,
-};
+use resume_fixer_lib::render::templates::{DEFAULT_TEMPLATE, SIMPLIFY_TEMPLATE};
+use resume_fixer_lib::render::tex::{ExperienceBlock, ProjectBlock, RenderInput, RoleBlock};
 
 const REFERENCE: &str = include_str!("../../templates/reference/base_resume.tex");
 
@@ -107,6 +106,7 @@ fn reference_input() -> RenderInput {
                 ],
             },
         ],
+        activities: vec![],
         certifications: vec![
             "CompTIA Security+".into(),
             "AWS Certified Cloud Practitioner".into(),
@@ -114,6 +114,32 @@ fn reference_input() -> RenderInput {
             "ITS: Artificial Intelligence".into(),
         ],
     }
+}
+
+/// The second built-in has to survive a real compile, not just a Tera render — a template
+/// that only fails inside LaTeX would break the Base tab and every later generation.
+#[tokio::test]
+#[ignore = "needs tectonic on PATH"]
+async fn the_simplify_template_compiles_with_an_activities_section() {
+    let mut input = reference_input();
+    input.activities = vec![ExperienceBlock {
+        org: "Intramural Ice Hockey".into(),
+        location: "Charlottesville, VA".into(),
+        roles: vec![role("Team Captain", "Jan. 2026 -- Present", &[])],
+    }];
+    let generated =
+        resume_fixer_lib::render::tex::render(SIMPLIFY_TEMPLATE, &input).expect("template renders");
+    assert!(generated.contains("\\section{Activities \\& Leadership}"));
+
+    let dir = std::env::temp_dir().join("resume-fixer-simplify");
+    let out = tectonic::compile("tectonic", &generated, &dir)
+        .await
+        .expect("the Simplify document compiles");
+    println!(
+        "simplify: {} page(s) at {}",
+        out.page_count,
+        out.pdf_path.display()
+    );
 }
 
 #[tokio::test]

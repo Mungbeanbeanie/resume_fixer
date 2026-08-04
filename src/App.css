@@ -156,6 +156,20 @@ table.apps tbody tr:hover {
 
 /* ── Vault ────────────────────────────────────────────────── */
 
+.vault-section {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin: 18px 0 2px;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 6px;
+}
+
 .experience {
   border: 1px solid var(--border);
   border-radius: var(--radius);

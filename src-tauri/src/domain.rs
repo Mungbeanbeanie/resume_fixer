@@ -14,6 +14,7 @@ pub enum ExperienceKind {
     Project,
     Education,
     Certification,
+    Activity,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, sqlx::Type)]
@@ -314,6 +315,37 @@ pub struct GenerationResult {
     pub used_bullets: Vec<UsedBullet>,
     pub rejected: Vec<RejectedRewrite>,
     pub dropped_for_fit: i32,
+}
+
+// ── Templates and base resumes ──────────────────────────────────────────
+
+#[derive(Debug, Clone, Serialize, sqlx::FromRow)]
+pub struct Template {
+    pub id: Uuid,
+    pub name: String,
+    pub source: String,
+    pub is_builtin: bool,
+    pub is_active: bool,
+}
+
+#[derive(Debug, Clone, Serialize, sqlx::FromRow)]
+pub struct BaseResume {
+    pub id: Uuid,
+    pub name: String,
+    pub template_name: String,
+    pub pdf_path: Option<String>,
+    pub page_count: Option<i32>,
+    pub created_at: DateTime<Utc>,
+}
+
+/// A base resume that has been compiled but not saved. Mirrors the draft rule: nothing
+/// reaches the database until the user names it.
+#[derive(Debug, Clone, Serialize)]
+pub struct BasePreview {
+    pub template_name: String,
+    pub pdf_path: String,
+    pub page_count: i32,
+    pub bullet_count: i32,
 }
 
 #[derive(Debug, Clone, Serialize)]

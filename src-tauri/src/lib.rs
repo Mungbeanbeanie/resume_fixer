@@ -26,9 +26,10 @@ pub fn run() {
             std::fs::create_dir_all(&data_dir)?;
             // The sqlx pool spawns its maintenance task at construction, so it has to be
             // built inside the async runtime rather than on the bare setup thread.
-            let state = tauri::async_runtime::block_on(async move {
-                state::AppState::new(config, data_dir)
-            })?;
+            let state =
+                tauri::async_runtime::block_on(
+                    async move { state::AppState::new(config, data_dir) },
+                )?;
             app.manage(state);
             Ok(())
         })
@@ -53,6 +54,15 @@ pub fn run() {
             commands::generate::generate_commit,
             commands::generate::generate_export_pdf,
             commands::generate::generate_export_draft,
+            commands::base::base_list_templates,
+            commands::base::base_save_template,
+            commands::base::base_set_active_template,
+            commands::base::base_delete_template,
+            commands::base::base_render,
+            commands::base::base_save,
+            commands::base::base_list,
+            commands::base::base_delete,
+            commands::base::base_export,
             commands::library::library_list_applications,
             commands::library::library_get_application,
             commands::library::library_set_status,

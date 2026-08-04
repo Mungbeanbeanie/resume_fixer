@@ -8,7 +8,7 @@ use crate::domain::*;
 use crate::error::{AppError, Result};
 use crate::llm::{self, schemas::ParsedJob, PROMPT_VERSION};
 use crate::pipeline::{fit, retrieval, select, skills::SkillIndex};
-use crate::render::tex::DEFAULT_TEMPLATE;
+use crate::render::templates::DEFAULT_TEMPLATE;
 use crate::state::{AppState, Draft};
 use uuid::Uuid;
 
@@ -89,12 +89,20 @@ pub async fn generate(
         }
     };
 
+    // The template the user selected in the Base tab, or the built-in on a database that
+    // has not synced yet.
+    let template = db::template::get_active(&state.pool)
+        .await?
+        .map(|t| t.source)
+        .unwrap_or_else(|| DEFAULT_TEMPLATE.to_string());
+
     let mut plan = outcome.plan;
+    plan.prune_for(&template);
     let draft_id = Uuid::new_v4();
     let workdir = state.draft_dir(draft_id);
     let fitted = fit::fit_to_one_page(
         &state.config.render.tectonic_path,
-        DEFAULT_TEMPLATE,
+        &template,
         &mut plan,
         &workdir,
     )

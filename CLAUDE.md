@@ -78,12 +78,13 @@ Model calls are mocked in tests behind the `LlmClient` trait. No test requires O
 ```
 migrations/            sqlx migrations, NNNN_name.sql
 templates/
-  resume.tex.tera      generation template
+  resume.tex.tera      Jake's Resume, the default generation template
+  simplify.tex.tera    the Simplify layout — the one built-in with an Activities section
   reference/           the user's current resume — layout source of truth, do not edit
 src/                   React frontend
   ipc.ts               the only place invoke() is called
   types.ts             mirrors src-tauri/src/domain.rs
-  tabs/{generate,library,vault}/
+  tabs/{generate,library,vault,base}/
 src-tauri/src/
   commands/            thin IPC handlers — no business logic here
   db/                  repositories, one per aggregate; returns domain structs
@@ -130,7 +131,17 @@ not touch `sqlx` types. Repositories do not call the model.
   add a PDF parsing crate for this.
 - **Tectonic downloads packages on first compile.** Surface that in the UI; it is not a hang.
 - **Drafts are in-memory** until the user commits them to the library. Discarding writes
-  nothing to the database.
+  nothing to the database. A base resume preview follows the same rule.
+- **Templates live in the `templates` table.** Built-ins are re-synced from
+  `templates/*.tex.tera` on every health check, so the files stay authoritative and a
+  built-in cannot be edited in place — only saved under a new name. One row is `is_active`
+  and that is what Generate renders with.
+- **A template prints a section only if it names the variable.** `ResumePlan::prune_for`
+  drops the sections the source never mentions, so a bullet the template could not print is
+  never recorded as used. That is how `activity` entries reach the Simplify layout and stay
+  out of Jake's.
+- **The base resume runs no model and no fit loop.** Every active bullet, verbatim, through
+  the chosen template. Dropping bullets to reach one page would be the wrong document.
 
 ## Bullet quality standard
 

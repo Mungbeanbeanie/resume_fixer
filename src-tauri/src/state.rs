@@ -29,12 +29,23 @@ pub struct Draft {
     pub feedback: Option<String>,
 }
 
+/// The compiled base resume the user is looking at, before they name it. Same rule as a
+/// draft: nothing is written until they save.
+pub struct BaseDraft {
+    pub template_name: String,
+    pub tex: String,
+    pub pdf_path: PathBuf,
+    pub page_count: i32,
+    pub bullet_count: i32,
+}
+
 pub struct AppState {
     pub config: Config,
     pub pool: PgPool,
     pub llm: Box<dyn LlmClient>,
     pub data_dir: PathBuf,
     pub drafts: Mutex<HashMap<Uuid, Draft>>,
+    pub base_preview: Mutex<Option<BaseDraft>>,
 }
 
 impl AppState {
@@ -48,11 +59,21 @@ impl AppState {
             data_dir,
             config,
             drafts: Mutex::new(HashMap::new()),
+            base_preview: Mutex::new(None),
         })
     }
 
     pub fn draft_dir(&self, draft_id: Uuid) -> PathBuf {
         self.data_dir.join("drafts").join(draft_id.to_string())
+    }
+
+    /// One reused directory: only the newest base preview is ever of interest.
+    pub fn base_preview_dir(&self) -> PathBuf {
+        self.data_dir.join("base").join("preview")
+    }
+
+    pub fn base_path(&self, base_id: Uuid) -> PathBuf {
+        self.data_dir.join("base").join(format!("{base_id}.pdf"))
     }
 
     pub fn resume_path(&self, resume_id: Uuid) -> PathBuf {
