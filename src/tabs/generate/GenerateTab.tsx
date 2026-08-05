@@ -3,6 +3,7 @@ import { convertFileSrc } from "@tauri-apps/api/core";
 import { openPath } from "@tauri-apps/plugin-opener";
 import { errorMessage, generate } from "../../ipc";
 import type { GenerationResult, HealthReport } from "../../types";
+import DraftBullets from "../../DraftBullets";
 
 type Phase = "idle" | "ingesting" | "generating" | "ready" | "saving";
 
@@ -17,6 +18,8 @@ interface State {
   result: GenerationResult | null;
   error: string | null;
   saved: string | null;
+  /// Every compile writes the same resume.pdf, so the preview needs a changing URL.
+  revision: number;
 }
 
 type Action =
@@ -37,6 +40,7 @@ const initial: State = {
   result: null,
   error: null,
   saved: null,
+  revision: 0,
 };
 
 function reducer(state: State, action: Action): State {
@@ -48,7 +52,14 @@ function reducer(state: State, action: Action): State {
     case "failed":
       return { ...state, phase: state.result ? "ready" : "idle", error: action.error };
     case "ready":
-      return { ...state, phase: "ready", result: action.result, error: null, feedbackOpen: false };
+      return {
+        ...state,
+        phase: "ready",
+        result: action.result,
+        error: null,
+        feedbackOpen: false,
+        revision: state.revision + 1,
+      };
     case "reset":
       return { ...initial };
   }
@@ -159,7 +170,6 @@ export default function GenerateTab({ health }: { health: HealthReport | null })
 
   if (state.result && state.phase !== "generating") {
     const r = state.result;
-    const reworded = r.used_bullets.filter((b) => b.was_reworded).length;
     return (
       <div className="col">
         <div className="row">
@@ -201,6 +211,13 @@ export default function GenerateTab({ health }: { health: HealthReport | null })
         {state.error && <div className="error">{state.error}</div>}
         {state.saved && <div className="muted">{state.saved}</div>}
 
+        {r.retired.length > 0 && (
+          <div className="muted">
+            Left off to reach one page: {r.retired.join(", ")}. Pin an experience in the
+            Vault to keep it regardless.
+          </div>
+        )}
+
         {r.page_count > 1 && (
           <div className="error">
             Still {r.page_count} pages after dropping {r.dropped_for_fit} bullets. Trim a bullet in
@@ -208,25 +225,22 @@ export default function GenerateTab({ health }: { health: HealthReport | null })
           </div>
         )}
 
-        <embed className="preview" src={convertFileSrc(r.pdf_path)} type="application/pdf" />
+        <embed
+          className="preview"
+          src={`${convertFileSrc(r.pdf_path)}?v=${state.revision}`}
+          type="application/pdf"
+        />
         <button className="quiet" onClick={() => openPath(r.pdf_path)}>
           Open in the system viewer
         </button>
 
-        <details className="disclosure">
-          <summary>
-            {r.used_bullets.length} bullets used, {reworded} reworded
-            {r.dropped_for_fit > 0 && `, ${r.dropped_for_fit} dropped to fit`}
-          </summary>
-          <ul className="bullet-list">
-            {r.used_bullets.map((b) => (
-              <li key={b.bullet_id}>
-                <span className="muted">{b.org_name}</span> — {b.rendered_text}
-                {b.was_reworded && <span className="pill on" style={{ marginLeft: 6 }}>reworded</span>}
-              </li>
-            ))}
-          </ul>
-        </details>
+        <DraftBullets
+          bullets={r.used_bullets}
+          dropped={r.dropped_for_fit}
+          onApply={async (edits) =>
+            dispatch({ type: "ready", result: await generate.revise(r.draft_id, edits) })
+          }
+        />
 
         {r.rejected.length > 0 && (
           <details className="disclosure">

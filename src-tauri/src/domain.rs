@@ -66,6 +66,8 @@ pub struct Experience {
     pub tech_line: Option<String>,
     pub display_order: i32,
     pub is_active: bool,
+    /// The fit loop may never retire this experience, however weakly it scores.
+    pub is_pinned: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
@@ -147,6 +149,8 @@ pub struct ExperienceInput {
     pub tech_line: Option<String>,
     pub display_order: i32,
     pub is_active: bool,
+    /// The fit loop may never retire this experience, however weakly it scores.
+    pub is_pinned: bool,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -175,6 +179,16 @@ pub struct BulletInput {
 pub struct Suggestion {
     pub variant_id: Uuid,
     pub text: String,
+}
+
+/// One line of a draft as the user wants it printed.
+///
+/// `keep: false` drops the line from this resume only — the bullet stays in the vault.
+#[derive(Debug, Clone, Deserialize)]
+pub struct BulletEdit {
+    pub bullet_id: Uuid,
+    pub text: String,
+    pub keep: bool,
 }
 
 /// One active bullet with everything retrieval scores against.
@@ -317,6 +331,8 @@ pub struct GenerationResult {
     pub used_bullets: Vec<UsedBullet>,
     pub rejected: Vec<RejectedRewrite>,
     pub dropped_for_fit: i32,
+    /// Experiences the fit loop retired whole, named so the user is never silently edited.
+    pub retired: Vec<String>,
 }
 
 // ── Templates and base resumes ──────────────────────────────────────────
@@ -348,6 +364,10 @@ pub struct BasePreview {
     pub pdf_path: String,
     pub page_count: i32,
     pub bullet_count: i32,
+    /// The printed lines, so the preview can be trimmed by hand before it is saved.
+    pub used_bullets: Vec<UsedBullet>,
+    /// Experiences the fit loop retired whole, named so the user is never silently edited.
+    pub retired: Vec<String>,
 }
 
 #[derive(Debug, Clone, Serialize)]

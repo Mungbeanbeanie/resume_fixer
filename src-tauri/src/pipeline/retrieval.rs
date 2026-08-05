@@ -21,7 +21,7 @@ const RECENCY_HORIZON_YEARS: f32 = 4.0;
 /// with room to drop, small enough to stay inside a 35B model's useful attention.
 pub const SHORTLIST: usize = 24;
 
-fn recency_factor(end_date: Option<NaiveDate>, today: NaiveDate) -> f32 {
+pub(crate) fn recency_factor(end_date: Option<NaiveDate>, today: NaiveDate) -> f32 {
     let Some(end) = end_date else { return 1.0 }; // still there
     let years = (today.num_days_from_ce() - end.num_days_from_ce()) as f32 / 365.25;
     (1.0 - years / RECENCY_HORIZON_YEARS).clamp(0.0, 1.0)

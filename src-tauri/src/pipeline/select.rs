@@ -7,6 +7,7 @@
 use super::grounding;
 use super::plan::{PlanBullet, PlanRole, PlanSection, ResumePlan};
 use super::skills::SkillIndex;
+use super::strength;
 use crate::domain::*;
 use crate::error::Result;
 use crate::llm::{self, client::LlmClient, schemas::ParsedJob};
@@ -120,11 +121,7 @@ pub async fn run(
         }
     }
 
-    let skills_line = index
-        .resolve_all(selection.skills_line.iter().map(String::as_str))
-        .iter()
-        .filter_map(|slug| index.display(slug).map(str::to_string))
-        .collect();
+    let skills_line = index.line(selection.skills_line.iter().map(String::as_str));
 
     Ok(SelectionOutcome {
         plan: assemble(chosen, vault, profile, skills_line),
@@ -159,11 +156,7 @@ pub fn deterministic(
         })
         .collect();
 
-    let skills_line = index
-        .resolve_all(wanted.iter().map(String::as_str))
-        .iter()
-        .filter_map(|slug| index.display(slug).map(str::to_string))
-        .collect();
+    let skills_line = index.line(wanted.iter().map(String::as_str));
 
     SelectionOutcome {
         plan: assemble(chosen, vault, profile, skills_line),
@@ -211,6 +204,7 @@ fn assemble(
     skills_line: Vec<String>,
 ) -> ResumePlan {
     let picked: HashMap<Uuid, Chosen> = chosen.into_iter().collect();
+    let merit = strength::score_all(vault);
     let mut plan = ResumePlan {
         profile,
         skills_line,
@@ -279,11 +273,26 @@ fn assemble(
         if roles.is_empty() {
             continue;
         }
+        // Fit for the posting when the bullets were scored, intrinsic merit when they were
+        // not — the base resume leaves every bullet at 0.0, so `merit` is what ranks it.
+        let fit: f32 = roles
+            .iter()
+            .flat_map(|r| r.bullets.iter())
+            .map(|b| b.score)
+            .sum::<f32>()
+            / roles.iter().map(|r| r.bullets.len()).sum::<usize>().max(1) as f32;
         let section = PlanSection {
             experience_id: detail.experience.id,
             org: detail.experience.org_name.clone(),
             location: detail.experience.location.clone().unwrap_or_default(),
             tech: detail.experience.tech_line.clone().unwrap_or_default(),
+            keep_empty,
+            score: if fit > 0.0 {
+                fit
+            } else {
+                merit.get(&detail.experience.id).copied().unwrap_or(0.0)
+            },
+            pinned: detail.experience.is_pinned,
             roles,
         };
         match detail.experience.kind {

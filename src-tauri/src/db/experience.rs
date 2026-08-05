@@ -6,7 +6,8 @@ use sqlx::PgPool;
 use std::collections::HashMap;
 use uuid::Uuid;
 
-const COLS: &str = "id, kind, org_name, location, url, tech_line, display_order, is_active";
+const COLS: &str =
+    "id, kind, org_name, location, url, tech_line, display_order, is_active, is_pinned";
 
 pub async fn list(pool: &PgPool) -> Result<Vec<Experience>> {
     Ok(sqlx::query_as::<_, Experience>(&format!(
@@ -18,13 +19,13 @@ pub async fn list(pool: &PgPool) -> Result<Vec<Experience>> {
 
 pub async fn upsert(pool: &PgPool, input: &ExperienceInput) -> Result<Experience> {
     Ok(sqlx::query_as::<_, Experience>(&format!(
-        "INSERT INTO experiences (id, kind, org_name, location, url, tech_line, display_order, is_active)
-         VALUES (COALESCE($1, gen_random_uuid()), $2, $3, $4, $5, $6, $7, $8)
+        "INSERT INTO experiences (id, kind, org_name, location, url, tech_line, display_order, is_active, is_pinned)
+         VALUES (COALESCE($1, gen_random_uuid()), $2, $3, $4, $5, $6, $7, $8, $9)
          ON CONFLICT (id) DO UPDATE
            SET kind = EXCLUDED.kind, org_name = EXCLUDED.org_name, location = EXCLUDED.location,
                url = EXCLUDED.url, tech_line = EXCLUDED.tech_line,
                display_order = EXCLUDED.display_order, is_active = EXCLUDED.is_active,
-               updated_at = now()
+               is_pinned = EXCLUDED.is_pinned, updated_at = now()
          RETURNING {COLS}"
     ))
     .bind(input.id)
@@ -35,6 +36,7 @@ pub async fn upsert(pool: &PgPool, input: &ExperienceInput) -> Result<Experience
     .bind(&input.tech_line)
     .bind(input.display_order)
     .bind(input.is_active)
+    .bind(input.is_pinned)
     .fetch_one(pool)
     .await?)
 }

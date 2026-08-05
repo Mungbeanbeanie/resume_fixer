@@ -45,6 +45,7 @@ async fn seed_tree(pool: &PgPool, org: &str) -> (Uuid, Uuid, Uuid) {
             tech_line: None,
             display_order: 99,
             is_active: true,
+            is_pinned: false,
         },
     )
     .await

@@ -3,9 +3,8 @@ import { vault } from "../../ipc";
 import type { ExperienceDetail, Skill } from "../../types";
 import { useVault } from "./vaultContext";
 
-// Every row in the skills table, with the ones that reach the base resume checked. A skill
-// tagged on a bullet or experience always prints, so its box is checked and locked; the rest
-// are the user's own call.
+// Every row in the skills table, with the ones that reach a resume checked. Tagging a skill
+// on a bullet or experience checks it, and the box stays the user's to uncheck.
 export default function SkillsCard({ experiences }: { experiences: ExperienceDetail[] }) {
   const { report } = useVault();
   const [skills, setSkills] = useState<Skill[]>([]);
@@ -23,14 +22,14 @@ export default function SkillsCard({ experiences }: { experiences: ExperienceDet
     void load();
   }, [load]);
 
-  // The same rule as services/base.rs::vault_skills, from data the tab already holds.
+  // Only to mark which skills the vault actually tags — it does not decide what prints.
   const tagged = new Set(
     experiences
       .flatMap((e) => [...e.skills, ...e.roles.flatMap((r) => r.bullets.flatMap((b) => b.skills))])
       .map((s) => s.slug),
   );
 
-  const printed = skills.filter((s) => s.always_list || tagged.has(s.slug)).length;
+  const printed = skills.filter((s) => s.always_list).length;
 
   async function setListed(skill: Skill, listed: boolean) {
     try {
@@ -65,15 +64,10 @@ export default function SkillsCard({ experiences }: { experiences: ExperienceDet
           {skills.map((s) => {
             const inUse = tagged.has(s.slug);
             return (
-              <label
-                key={s.id}
-                className="skill-toggle"
-                title={inUse ? "Tagged on a bullet or experience — always printed" : undefined}
-              >
+              <label key={s.id} className={`pill skill-toggle${s.always_list ? " on" : ""}`}>
                 <input
                   type="checkbox"
-                  checked={inUse || s.always_list}
-                  disabled={inUse}
+                  checked={s.always_list}
                   onChange={(e) => setListed(s, e.target.checked)}
                 />
                 {s.name}

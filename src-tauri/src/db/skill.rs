@@ -38,11 +38,13 @@ pub async fn list(pool: &PgPool) -> Result<Vec<Skill>> {
 
 /// Returns the skill for `name`, creating it if the slug is new.
 ///
-/// An existing row keeps its display name and aliases; a first-seen name defines them.
+/// An existing row keeps its display name, aliases and listing flag; a first-seen name
+/// defines them and starts listed, since a skill worth tagging is worth printing. The flag
+/// is never rewritten here: re-saving a bullet must not undo a box the user unchecked.
 pub async fn upsert_by_name(pool: &PgPool, name: &str) -> Result<Skill> {
     let slug = slugify(name);
     Ok(sqlx::query_as::<_, Skill>(
-        "INSERT INTO skills (name, slug) VALUES ($1, $2)
+        "INSERT INTO skills (name, slug, always_list) VALUES ($1, $2, TRUE)
          ON CONFLICT (slug) DO UPDATE SET slug = EXCLUDED.slug
          RETURNING id, name, slug, category, aliases, always_list",
     )

@@ -10,7 +10,7 @@ use schemas::{Improvements, ParsedJob, Selection};
 use serde::de::DeserializeOwned;
 
 /// Bump on any edit to a file in `prompts/`.
-pub const PROMPT_VERSION: &str = "2026-07-26.1";
+pub const PROMPT_VERSION: &str = "2026-08-05.2";
 
 const PARSE_JOB: &str = include_str!("prompts/parse_job.txt");
 const SELECT: &str = include_str!("prompts/select.txt");

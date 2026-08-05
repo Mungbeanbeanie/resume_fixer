@@ -49,6 +49,14 @@ pub async fn base_render(
 }
 
 #[tauri::command]
+pub async fn base_revise(
+    state: State<'_, AppState>,
+    edits: Vec<BulletEdit>,
+) -> Result<BasePreview> {
+    services::base::revise(&state, edits).await
+}
+
+#[tauri::command]
 pub async fn base_save(state: State<'_, AppState>, name: String) -> Result<BaseResume> {
     services::base::save(&state, name).await
 }

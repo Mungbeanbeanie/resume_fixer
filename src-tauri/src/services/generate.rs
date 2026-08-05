@@ -9,6 +9,7 @@ use crate::error::{AppError, Result};
 use crate::llm::{self, schemas::ParsedJob, PROMPT_VERSION};
 use crate::pipeline::{fit, retrieval, select, skills::SkillIndex};
 use crate::render::templates::DEFAULT_TEMPLATE;
+use crate::render::{tectonic, tex};
 use crate::state::{AppState, Draft};
 use uuid::Uuid;
 
@@ -98,6 +99,7 @@ pub async fn generate(
 
     let mut plan = outcome.plan;
     plan.prune_for(&template);
+    plan.cap_bullets();
     let draft_id = Uuid::new_v4();
     let workdir = state.draft_dir(draft_id);
     let fitted = fit::fit_to_one_page(
@@ -117,6 +119,7 @@ pub async fn generate(
         used_bullets: plan.used_bullets(),
         rejected: outcome.rejected.clone(),
         dropped_for_fit: fitted.dropped,
+        retired: fitted.retired,
     };
 
     state.drafts.lock().await.insert(
@@ -137,6 +140,60 @@ pub async fn generate(
         },
     );
     Ok(result)
+}
+
+/// Reworks a draft to the user's own edits and recompiles it.
+///
+/// No model runs and no fit loop: the user is fine-tuning, and paying for their edit by
+/// silently dropping someone else's bullet would undo the thing they asked for. An
+/// overlong result comes back with its real page count for the caller to warn about.
+/// Rejects an edit set that would empty the resume.
+pub async fn revise(
+    state: &AppState,
+    draft_id: Uuid,
+    edits: Vec<BulletEdit>,
+) -> Result<GenerationResult> {
+    let template = db::template::get_active(&state.pool)
+        .await?
+        .map(|t| t.source)
+        .unwrap_or_else(|| DEFAULT_TEMPLATE.to_string());
+
+    let mut drafts = state.drafts.lock().await;
+    let draft = drafts
+        .get_mut(&draft_id)
+        .ok_or_else(|| AppError::NotFound("draft".into()))?;
+
+    draft.plan.apply_edits(&edits);
+    draft.plan.prune_for(&template);
+    if draft.plan.bullet_count() == 0 {
+        return Err(AppError::Invalid(
+            "that would leave the resume with no bullets — keep at least one".into(),
+        ));
+    }
+
+    let tex_source = tex::render(&template, &draft.plan.to_render_input())?;
+    let compiled = tectonic::compile(
+        &state.config.render.tectonic_path,
+        &tex_source,
+        &state.draft_dir(draft_id),
+    )
+    .await?;
+
+    draft.tex = tex_source;
+    draft.pdf_path = compiled.pdf_path;
+    draft.page_count = compiled.page_count;
+
+    Ok(GenerationResult {
+        draft_id,
+        pdf_path: draft.pdf_path.to_string_lossy().to_string(),
+        page_count: draft.page_count,
+        company: draft.company.clone(),
+        role_title: draft.role_title.clone(),
+        used_bullets: draft.plan.used_bullets(),
+        rejected: draft.rejected.clone(),
+        dropped_for_fit: 0,
+        retired: Vec::new(),
+    })
 }
 
 /// Writes a draft to the library: the application, the resume, and one provenance row

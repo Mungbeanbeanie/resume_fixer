@@ -89,7 +89,9 @@ button.danger:hover:not(:disabled) {
   color: var(--danger);
 }
 
-input,
+/* Checkboxes and radios keep their native box: the full-width text-field styling below
+   would stretch one across its whole line. */
+input:not([type="checkbox"]):not([type="radio"]),
 textarea,
 select {
   font: inherit;

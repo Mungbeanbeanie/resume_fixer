@@ -19,7 +19,17 @@ If a bullet's fit is unclear, return it with "rewrite": null. Returning the orig
 always safe; embellishing is not.
 
 Aim for 12 to 18 bullets total across all sections, strongest first within each section.
-Prefer bullets that name a technology the posting asks for.
+A recruiter decides whether to keep reading in well under ten seconds, so the first bullet
+of each section has to be the one that earns the rest.
+
+Choosing between two bullets, in this order:
+1. Relevance to the posting wins. A bullet from three years ago that names what the posting
+   asks for beats a recent one that does not.
+2. Then the one carrying a measurable outcome — a number, a percentage, a scale. That is
+   the single most persuasive thing on a resume, and roughly half of what you pick should
+   have one where the history offers it. Never invent a number to reach that ratio: a
+   fabricated metric is a worse failure than a bullet without one.
+3. Then the more recent one.
 
 Return one JSON object, nothing else:
 

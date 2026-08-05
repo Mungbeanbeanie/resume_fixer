@@ -10,6 +10,7 @@ import type {
   BasePreview,
   BaseResume,
   Bullet,
+  BulletEdit,
   BulletInput,
   Experience,
   ExperienceDetail,
@@ -72,6 +73,8 @@ export const generate = {
     feedback?: string | null;
   }) => invoke<GenerationResult>("generate_from_text", args),
   discard: (draftId: string) => invoke<void>("generate_discard", { draftId }),
+  revise: (draftId: string, edits: BulletEdit[]) =>
+    invoke<GenerationResult>("generate_revise", { draftId, edits }),
   commit: (draftId: string, applied: boolean) =>
     invoke<string>("generate_commit", { draftId, applied }),
   exportPdf: (resumeId: string, destPath: string) =>
@@ -88,6 +91,7 @@ export const base = {
   deleteTemplate: (id: string) => invoke<void>("base_delete_template", { id }),
   render: (templateId?: string | null) =>
     invoke<BasePreview>("base_render", { templateId: templateId ?? null }),
+  revise: (edits: BulletEdit[]) => invoke<BasePreview>("base_revise", { edits }),
   save: (name: string) => invoke<BaseResume>("base_save", { name }),
   list: () => invoke<BaseResume[]>("base_list"),
   remove: (id: string) => invoke<void>("base_delete", { id }),

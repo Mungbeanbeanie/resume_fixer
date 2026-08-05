@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { errorMessage, vault } from "../../ipc";
 import type { ExperienceDetail, ExperienceKind, Profile } from "../../types";
+import BulletStandard from "./BulletStandard";
 import ExperienceCard from "./ExperienceCard";
 import SkillsCard from "./SkillsCard";
 import { VaultCtx } from "./vaultContext";
@@ -145,6 +146,7 @@ export default function VaultTab() {
         tech_line: null,
         display_order: experiences.length,
         is_active: true,
+        is_pinned: false,
       });
       await reload();
     } catch (e) {
@@ -159,6 +161,7 @@ export default function VaultTab() {
 
         <h3 className="vault-section">Skills</h3>
         <SkillsCard experiences={experiences} />
+        <BulletStandard />
 
         <h3 className="vault-section">Header Info</h3>
         {profile && <ProfileCard profile={profile} onSaved={setProfile} />}

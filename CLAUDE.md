@@ -125,13 +125,24 @@ not touch `sqlx` types. Repositories do not call the model.
   experience tags catch relevance the bullet text does not spell out. Both feed retrieval.
 - **Skill matching is by `slug` plus `aliases[]`**, always case-folded. Never match on
   `skills.name`.
-- **Resumes must fit one page.** The fit loop drops the lowest-scoring bullet from the
-  largest section and recompiles, up to 6 times, never emptying an experience.
+- **Resumes must fit one page.** The fit loop shrinks in two moves, in order: retire the
+  lowest-scoring experience whole, and only when nothing may be retired, drop the
+  lowest-scoring bullet from the largest section. Depth beats breadth — three entries with
+  three lines each carry more than eight with one. Up to 6 passes, never emptying an
+  experience, never retiring education, a pinned entry, or the last one standing.
+- **Experiences are ranked two ways.** A tailored resume ranks by fit for the posting (mean
+  bullet score from `retrieval`); the base resume has no posting, so it ranks by intrinsic
+  merit from `pipeline/strength.rs` — quantified outcome, then recency, then skill density,
+  in that order and for the reasons written there. Retired entries are named in the UI: the
+  user is never silently edited.
 - **Page count comes from the TeX log** line `Output written on ... (N pages, ...)`. Do not
   add a PDF parsing crate for this.
 - **Tectonic downloads packages on first compile.** Surface that in the UI; it is not a hang.
 - **Drafts are in-memory** until the user commits them to the library. Discarding writes
   nothing to the database. A base resume preview follows the same rule.
+- **Hand edits to a draft are draft-local.** `ResumePlan::apply_edits` changes `text` and
+  leaves `source_text` alone, so the vault keeps its wording and `was_reworded` goes false —
+  the model is never credited with a line the user wrote.
 - **Templates live in the `templates` table.** Built-ins are re-synced from
   `templates/*.tex.tera` on every health check, so the files stay authoritative and a
   built-in cannot be edited in place — only saved under a new name. One row is `is_active`
@@ -140,8 +151,14 @@ not touch `sqlx` types. Repositories do not call the model.
   drops the sections the source never mentions, so a bullet the template could not print is
   never recorded as used. That is how `activity` entries reach the Simplify layout and stay
   out of Jake's.
-- **The base resume runs no model and no fit loop.** Every active bullet, verbatim, through
-  the chosen template. Dropping bullets to reach one page would be the wrong document.
+- **The base resume runs no model.** Every line it prints is a stored bullet verbatim, so
+  grounding has nothing to check. It does run the fit loop, ranked by intrinsic merit rather
+  than fit for a posting, and obeys the same three-bullets-per-experience cap. Both
+  documents can be trimmed by hand before saving.
+- **At most three bullets print under one experience** (`ResumePlan::cap_bullets`). The cut
+  is by score, so the fit loop rarely has anything left to do; ordering stays the vault's.
+  Roles the cap empties are dropped, except under education and activities, where the
+  heading is the content.
 
 ## Bullet quality standard
 

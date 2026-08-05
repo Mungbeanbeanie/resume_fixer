@@ -217,21 +217,14 @@ table.apps tbody tr:hover {
   margin-top: 4px;
 }
 
+/* Layout only — .pill carries the chip look, .pill.on the "this prints" accent. */
 .skill-toggle {
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  gap: 5px;
-  padding: 3px 9px 3px 6px;
-  border: 1px solid var(--border);
-  border-radius: 999px;
-  font-size: 12px;
+  gap: 6px;
   cursor: pointer;
 }
 
-.skill-toggle:has(:disabled) {
-  cursor: default;
-  opacity: 0.75;
-}
 
 .field-label {
   font-size: 12px;

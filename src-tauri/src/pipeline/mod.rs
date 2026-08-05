@@ -6,3 +6,4 @@ pub mod plan;
 pub mod retrieval;
 pub mod select;
 pub mod skills;
+pub mod strength;

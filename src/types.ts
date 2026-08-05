@@ -36,6 +36,7 @@ export interface Experience {
   tech_line: string | null;
   display_order: number;
   is_active: boolean;
+  is_pinned: boolean;
 }
 
 export interface Role {
@@ -96,6 +97,7 @@ export interface ExperienceInput {
   tech_line: string | null;
   display_order: number;
   is_active: boolean;
+  is_pinned: boolean;
 }
 
 export interface RoleInput {
@@ -121,6 +123,12 @@ export interface BulletInput {
 export interface Suggestion {
   variant_id: string;
   text: string;
+}
+
+export interface BulletEdit {
+  bullet_id: string;
+  text: string;
+  keep: boolean;
 }
 
 export interface Application {
@@ -216,6 +224,7 @@ export interface GenerationResult {
   used_bullets: UsedBullet[];
   rejected: RejectedRewrite[];
   dropped_for_fit: number;
+  retired: string[];
 }
 
 export interface Template {
@@ -240,6 +249,8 @@ export interface BasePreview {
   pdf_path: string;
   page_count: number;
   bullet_count: number;
+  used_bullets: UsedBullet[];
+  retired: string[];
 }
 
 export interface HealthReport {

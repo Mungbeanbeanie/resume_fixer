@@ -136,6 +136,7 @@ export default function ExperienceCard({ detail }: { detail: ExperienceDetail })
           tech_line: next.tech_line,
           display_order: next.display_order,
           is_active: next.is_active,
+          is_pinned: next.is_pinned,
         },
         tags
           .split(",")
@@ -160,6 +161,7 @@ export default function ExperienceCard({ detail }: { detail: ExperienceDetail })
           {roleCount} role{roleCount === 1 ? "" : "s"} · {bulletCount} bullet
           {bulletCount === 1 ? "" : "s"}
         </span>
+        {detail.is_pinned && <span className="pill on">always printed</span>}
         {!detail.is_active && <span className="pill off">hidden</span>}
       </summary>
 
@@ -243,6 +245,12 @@ export default function ExperienceCard({ detail }: { detail: ExperienceDetail })
           </button>
           <button onClick={() => save({ is_active: !draft.is_active })}>
             {draft.is_active ? "Hide from resumes" : "Show on resumes"}
+          </button>
+          <button
+            onClick={() => save({ is_pinned: !draft.is_pinned })}
+            title="A pinned experience is never retired to make a resume fit one page"
+          >
+            {draft.is_pinned ? "Unpin" : "Always print this"}
           </button>
           <span style={{ flex: 1 }} />
           <button

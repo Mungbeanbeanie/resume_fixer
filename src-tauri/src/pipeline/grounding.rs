@@ -57,7 +57,7 @@ impl fmt::Display for Rejection {
 /// Numeric tokens, normalized: thousands separators removed, trailing punctuation
 /// dropped, a `%` or `+` kept because it changes the claim, an attached unit kept
 /// because `15ms` and `15s` are different facts.
-fn numbers(text: &str) -> Vec<String> {
+pub(crate) fn numbers(text: &str) -> Vec<String> {
     let mut out = Vec::new();
     let chars: Vec<char> = text.chars().collect();
     let mut i = 0;

@@ -33,6 +33,7 @@ pub struct Draft {
 /// draft: nothing is written until they save.
 pub struct BaseDraft {
     pub template_name: String,
+    pub plan: ResumePlan,
     pub tex: String,
     pub pdf_path: PathBuf,
     pub page_count: i32,

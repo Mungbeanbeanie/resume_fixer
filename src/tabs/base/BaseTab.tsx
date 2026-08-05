@@ -3,6 +3,7 @@ import { convertFileSrc } from "@tauri-apps/api/core";
 import { openPath } from "@tauri-apps/plugin-opener";
 import { base, errorMessage } from "../../ipc";
 import type { BasePreview, BaseResume, Template } from "../../types";
+import DraftBullets from "../../DraftBullets";
 import TemplateEditor from "./TemplateEditor";
 
 // The base resume is the whole vault through one template: no posting, no model, no
@@ -12,6 +13,8 @@ export default function BaseTab() {
   const [saved, setSaved] = useState<BaseResume[]>([]);
   const [selected, setSelected] = useState<string>("");
   const [preview, setPreview] = useState<BasePreview | null>(null);
+  // Every compile overwrites the same preview.pdf, so the embed needs a changing URL.
+  const [revision, setRevision] = useState(0);
   const [name, setName] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -41,6 +44,7 @@ export default function BaseTab() {
     try {
       const result = await base.render(selected || null);
       setPreview(result);
+      setRevision((r) => r + 1);
       setError(null);
     } catch (e) {
       setError(errorMessage(e));
@@ -151,9 +155,22 @@ export default function BaseTab() {
               Save
             </button>
           </div>
+          {preview.retired.length > 0 && (
+            <div className="muted">
+              Left off to reach one page: {preview.retired.join(", ")}. Pin an experience in
+              the Vault to keep it regardless.
+            </div>
+          )}
+          <DraftBullets
+            bullets={preview.used_bullets}
+            onApply={async (edits) => {
+              setPreview(await base.revise(edits));
+              setRevision((r) => r + 1);
+            }}
+          />
           <embed
             className="preview"
-            src={convertFileSrc(preview.pdf_path)}
+            src={`${convertFileSrc(preview.pdf_path)}?v=${revision}`}
             type="application/pdf"
           />
         </>

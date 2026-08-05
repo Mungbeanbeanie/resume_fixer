@@ -1,6 +1,6 @@
 //! Generate IPC.
 
-use crate::domain::{GenerationResult, IngestResult, JobSource};
+use crate::domain::{BulletEdit, GenerationResult, IngestResult, JobSource};
 use crate::error::{AppError, Result};
 use crate::ingest;
 use crate::services;
@@ -32,6 +32,15 @@ pub async fn generate_from_text(
 #[tauri::command]
 pub async fn generate_discard(state: State<'_, AppState>, draft_id: Uuid) -> Result<()> {
     services::generate::discard(&state, draft_id).await
+}
+
+#[tauri::command]
+pub async fn generate_revise(
+    state: State<'_, AppState>,
+    draft_id: Uuid,
+    edits: Vec<BulletEdit>,
+) -> Result<GenerationResult> {
+    services::generate::revise(&state, draft_id, edits).await
 }
 
 #[tauri::command]
