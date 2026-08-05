@@ -62,7 +62,8 @@ export default function TemplateEditor({
         {saved && <div className="muted">{saved}</div>}
         <span className="muted" style={{ fontSize: 12 }}>
           Content comes from the vault through Tera variables: full_name, phone, email,
-          links, education, experience, projects, activities, certifications, skills_line. A
+          links, education, experience, projects, activities, certifications, skills_line,
+          interests. A
           section is printed only if the template names its variable.
         </span>
       </div>

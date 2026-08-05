@@ -173,11 +173,16 @@ pub fn build_context(input: &RenderInput) -> Context {
                 })
                 .collect::<Vec<_>>(),
         );
+        ctx.insert(
+            "interests",
+            &p.interests.as_deref().map(escape).unwrap_or_default(),
+        );
     } else {
         ctx.insert("full_name", "");
         ctx.insert("phone", "");
         ctx.insert("email", "");
         ctx.insert("links", &Vec::<LinkOut>::new());
+        ctx.insert("interests", "");
     }
     ctx.insert(
         "education",
@@ -328,6 +333,25 @@ mod tests {
 
         let jake = render(DEFAULT_TEMPLATE, &input).unwrap();
         assert!(!jake.contains("Intramural Ice Hockey"));
+    }
+
+    #[test]
+    fn interests_print_only_where_the_template_names_them() {
+        let input = RenderInput {
+            profile: Some(Profile {
+                full_name: "Michael Chung".into(),
+                phone: None,
+                email: None,
+                links: vec![],
+                interests: Some("Ice hockey, R&D, chess".into()),
+            }),
+            ..Default::default()
+        };
+        let simplify = render(SIMPLIFY_TEMPLATE, &input).unwrap();
+        assert!(simplify.contains("\\textbf{Interests:}{ Ice hockey, R\\&D, chess}"));
+
+        let jake = render(DEFAULT_TEMPLATE, &input).unwrap();
+        assert!(!jake.contains("Ice hockey"));
     }
 
     #[test]

@@ -25,6 +25,7 @@ export interface Profile {
   phone: string | null;
   email: string | null;
   links: Link[];
+  interests: string | null;
 }
 
 export interface Experience {

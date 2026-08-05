@@ -36,6 +36,7 @@ fn reference_input() -> RenderInput {
                     url: "https://github.com/Mungbeanbeanie".into(),
                 },
             ],
+            interests: None,
         }),
         education: vec![ExperienceBlock {
             org: "University of Virginia".into(),

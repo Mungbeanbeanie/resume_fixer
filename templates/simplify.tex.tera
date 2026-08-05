@@ -162,7 +162,7 @@
 {% endif %}{% endfor %}{% endfor %}
   \resumeSubHeadingListEnd
 {% endif %}
-{% if skills_line or certifications %}
+{% if skills_line or certifications or interests %}
 %-----------SKILLS-----------
 \section{Skills}
 \begin{itemize}[leftmargin=0.15in, label={}]
@@ -171,6 +171,9 @@
      }}
 {% endif %}{% if certifications %}    \small{\item{
      \textbf{Certifications:}{ {% for c in certifications %}{{ c }}{% if not loop.last %} $|$ {% endif %}{% endfor %}}
+     }}
+{% endif %}{% if interests %}    \small{\item{
+     \textbf{Interests:}{ {{ interests }}}
      }}
 {% endif %}\end{itemize}
 {% endif %}

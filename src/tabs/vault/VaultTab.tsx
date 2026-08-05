@@ -15,20 +15,16 @@ const SECTIONS: [ExperienceKind, string][] = [
   ["certification", "Certifications"],
 ];
 
-function ProfileCard({ profile, onSaved }: { profile: Profile; onSaved: (p: Profile) => void }) {
-  const [draft, setDraft] = useState(profile);
-  const [error, setError] = useState<string | null>(null);
+// The profile is edited from two cards — this one and Interests — so its draft lives in
+// VaultTab. Two components each holding a copy would let a save from one write back the
+// other's stale fields.
+type ProfileProps = {
+  draft: Profile;
+  setDraft: (p: Profile) => void;
+  save: (p: Profile) => void;
+};
 
-  async function save(next: Profile) {
-    setDraft(next);
-    try {
-      onSaved(await vault.upsertProfile(next));
-      setError(null);
-    } catch (e) {
-      setError(errorMessage(e));
-    }
-  }
-
+function ProfileCard({ draft, setDraft, save }: ProfileProps) {
   return (
     <details className="experience">
       <summary>
@@ -39,7 +35,6 @@ function ProfileCard({ profile, onSaved }: { profile: Profile; onSaved: (p: Prof
         </span>
       </summary>
       <div className="body">
-        {error && <div className="error">{error}</div>}
         <div className="grid-4" style={{ marginTop: 12 }}>
           <div>
             <span className="field-label">Full name</span>
@@ -110,17 +105,37 @@ function ProfileCard({ profile, onSaved }: { profile: Profile; onSaved: (p: Prof
   );
 }
 
+// One comma-separated line, printed only by templates that name `interests` — Simplify does,
+// Jake's does not.
+function InterestsCard({ draft, setDraft, save }: ProfileProps) {
+  return (
+    <div className="experience">
+      <div className="body">
+        <span className="field-label">Comma separated — the Simplify layout prints these</span>
+        <input
+          placeholder="Ice hockey, chess, orbital mechanics"
+          value={draft.interests ?? ""}
+          onChange={(e) => setDraft({ ...draft, interests: e.target.value || null })}
+          onBlur={() => save(draft)}
+        />
+      </div>
+    </div>
+  );
+}
+
 export default function VaultTab() {
   const [experiences, setExperiences] = useState<ExperienceDetail[]>([]);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [note, setNote] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
 
   const reload = useCallback(async () => {
     try {
       const [list, p] = await Promise.all([vault.listExperiences(), vault.getProfile()]);
       setExperiences(list);
-      setProfile(p ?? { full_name: "", phone: null, email: null, links: [] });
+      setProfile(p ?? { full_name: "", phone: null, email: null, links: [], interests: null });
       setError(null);
     } catch (e) {
       setError(errorMessage(e));
@@ -134,6 +149,40 @@ export default function VaultTab() {
   }, [reload]);
 
   const report = useCallback((e: unknown) => setError(errorMessage(e)), []);
+
+  async function saveProfile(next: Profile) {
+    setProfile(next);
+    try {
+      setProfile(await vault.upsertProfile(next));
+      setError(null);
+    } catch (e) {
+      report(e);
+    }
+  }
+
+  // Commits the profile draft and re-reads the vault. Every other field already saves on
+  // blur, so this is a flush plus a receipt: the counts come back from the database rather
+  // than from the state on screen, so an edit that failed to persist shows as a number that
+  // does not match what is displayed.
+  async function saveAll() {
+    setSaving(true);
+    try {
+      if (profile) setProfile(await vault.upsertProfile(profile));
+      const [list, skills] = await Promise.all([vault.listExperiences(), vault.listSkills()]);
+      setExperiences(list);
+      const entries = list.filter((e) => e.is_active).length;
+      const listed = skills.filter((s) => s.always_list).length;
+      setNote(
+        `Saved. Generation reads ${entries} active ${entries === 1 ? "entry" : "entries"} ` +
+          `and prints ${listed} of ${skills.length} skills.`,
+      );
+      setError(null);
+    } catch (e) {
+      report(e);
+    } finally {
+      setSaving(false);
+    }
+  }
 
   async function addExperience(kind: ExperienceKind) {
     try {
@@ -157,14 +206,28 @@ export default function VaultTab() {
   return (
     <VaultCtx.Provider value={{ reload, report }}>
       <div className="col">
+        <div className="row">
+          <span className="muted" style={{ fontSize: 12 }}>
+            Fields save when they lose focus. Save to commit everything and see what the
+            Generate and Base tabs will read.
+          </span>
+          <span style={{ flex: 1 }} />
+          <button className="primary" onClick={saveAll} disabled={saving}>
+            {saving ? "Saving…" : "Save vault"}
+          </button>
+        </div>
         {error && <div className="error">{error}</div>}
+        {note && <div className="muted">{note}</div>}
 
         <h3 className="vault-section">Skills</h3>
-        <SkillsCard experiences={experiences} />
+        <SkillsCard />
         <BulletStandard />
 
         <h3 className="vault-section">Header Info</h3>
-        {profile && <ProfileCard profile={profile} onSaved={setProfile} />}
+        {profile && <ProfileCard draft={profile} setDraft={setProfile} save={saveProfile} />}
+
+        <h3 className="vault-section">Interests</h3>
+        {profile && <InterestsCard draft={profile} setDraft={setProfile} save={saveProfile} />}
 
         {loading ? (
           <div className="empty">Loading…</div>

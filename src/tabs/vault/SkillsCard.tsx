@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useState } from "react";
 import { vault } from "../../ipc";
-import type { ExperienceDetail, Skill } from "../../types";
+import type { Skill } from "../../types";
 import { useVault } from "./vaultContext";
 
 // Every row in the skills table, with the ones that reach a resume checked. Tagging a skill
 // on a bullet or experience checks it, and the box stays the user's to uncheck.
-export default function SkillsCard({ experiences }: { experiences: ExperienceDetail[] }) {
+export default function SkillsCard() {
   const { report } = useVault();
   const [skills, setSkills] = useState<Skill[]>([]);
   const [name, setName] = useState("");
@@ -21,13 +21,6 @@ export default function SkillsCard({ experiences }: { experiences: ExperienceDet
   useEffect(() => {
     void load();
   }, [load]);
-
-  // Only to mark which skills the vault actually tags — it does not decide what prints.
-  const tagged = new Set(
-    experiences
-      .flatMap((e) => [...e.skills, ...e.roles.flatMap((r) => r.bullets.flatMap((b) => b.skills))])
-      .map((s) => s.slug),
-  );
 
   const printed = skills.filter((s) => s.always_list).length;
 
@@ -61,20 +54,16 @@ export default function SkillsCard({ experiences }: { experiences: ExperienceDet
       </summary>
       <div className="body">
         <div className="tags" style={{ marginTop: 12 }}>
-          {skills.map((s) => {
-            const inUse = tagged.has(s.slug);
-            return (
-              <label key={s.id} className={`pill skill-toggle${s.always_list ? " on" : ""}`}>
-                <input
-                  type="checkbox"
-                  checked={s.always_list}
-                  onChange={(e) => setListed(s, e.target.checked)}
-                />
-                {s.name}
-                {inUse && <span className="muted">· in use</span>}
-              </label>
-            );
-          })}
+          {skills.map((s) => (
+            <label key={s.id} className={`pill skill-toggle${s.always_list ? " on" : ""}`}>
+              <input
+                type="checkbox"
+                checked={s.always_list}
+                onChange={(e) => setListed(s, e.target.checked)}
+              />
+              {s.name}
+            </label>
+          ))}
         </div>
         <div className="row" style={{ marginTop: 12 }}>
           <input

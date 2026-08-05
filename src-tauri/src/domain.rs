@@ -52,6 +52,8 @@ pub struct Profile {
     pub email: Option<String>,
     #[sqlx(json)]
     pub links: Vec<Link>,
+    /// Comma-separated, printed verbatim by the templates that name `interests`.
+    pub interests: Option<String>,
 }
 
 // ── Vault ───────────────────────────────────────────────────────────────
