@@ -64,6 +64,7 @@ export interface Skill {
   slug: string;
   category: string | null;
   aliases: string[];
+  always_list: boolean;
 }
 
 export interface BulletVariant {

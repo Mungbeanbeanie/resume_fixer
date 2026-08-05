@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { errorMessage, vault } from "../../ipc";
 import type { ExperienceDetail, ExperienceKind, Profile } from "../../types";
 import ExperienceCard from "./ExperienceCard";
+import SkillsCard from "./SkillsCard";
 import { VaultCtx } from "./vaultContext";
 
 // The order the vault reads in. Header Info is the profile card and has no kind.
@@ -155,6 +156,9 @@ export default function VaultTab() {
     <VaultCtx.Provider value={{ reload, report }}>
       <div className="col">
         {error && <div className="error">{error}</div>}
+
+        <h3 className="vault-section">Skills</h3>
+        <SkillsCard experiences={experiences} />
 
         <h3 className="vault-section">Header Info</h3>
         {profile && <ProfileCard profile={profile} onSaved={setProfile} />}

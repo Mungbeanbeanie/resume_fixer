@@ -56,6 +56,9 @@ export const vault = {
     invoke<Suggestion[]>("vault_suggest_bullet_improvements", { bulletId }),
   acceptVariant: (variantId: string) => invoke<Bullet>("vault_accept_variant", { variantId }),
   listSkills: () => invoke<Skill[]>("vault_list_skills"),
+  addSkill: (name: string) => invoke<Skill>("vault_add_skill", { name }),
+  setSkillListed: (id: string, listed: boolean) =>
+    invoke<void>("vault_set_skill_listed", { id, listed }),
   getProfile: () => invoke<Profile | null>("vault_get_profile"),
   upsertProfile: (profile: Profile) => invoke<Profile>("vault_upsert_profile", { profile }),
 };

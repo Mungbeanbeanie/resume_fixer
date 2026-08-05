@@ -30,7 +30,7 @@ pub fn slugify(name: &str) -> String {
 
 pub async fn list(pool: &PgPool) -> Result<Vec<Skill>> {
     Ok(sqlx::query_as::<_, Skill>(
-        "SELECT id, name, slug, category, aliases FROM skills ORDER BY name",
+        "SELECT id, name, slug, category, aliases, always_list FROM skills ORDER BY name",
     )
     .fetch_all(pool)
     .await?)
@@ -44,12 +44,43 @@ pub async fn upsert_by_name(pool: &PgPool, name: &str) -> Result<Skill> {
     Ok(sqlx::query_as::<_, Skill>(
         "INSERT INTO skills (name, slug) VALUES ($1, $2)
          ON CONFLICT (slug) DO UPDATE SET slug = EXCLUDED.slug
-         RETURNING id, name, slug, category, aliases",
+         RETURNING id, name, slug, category, aliases, always_list",
     )
     .bind(name.trim())
     .bind(&slug)
     .fetch_one(pool)
     .await?)
+}
+
+/// Returns the skill for `name`, creating it if the slug is new, and marks it to print on
+/// the base resume.
+///
+/// An existing row keeps its display name and aliases, as `upsert_by_name` does — only the
+/// listing flag is written.
+pub async fn add_listed(pool: &PgPool, name: &str) -> Result<Skill> {
+    let slug = slugify(name);
+    Ok(sqlx::query_as::<_, Skill>(
+        "INSERT INTO skills (name, slug, always_list) VALUES ($1, $2, TRUE)
+         ON CONFLICT (slug) DO UPDATE SET always_list = TRUE
+         RETURNING id, name, slug, category, aliases, always_list",
+    )
+    .bind(name.trim())
+    .bind(&slug)
+    .fetch_one(pool)
+    .await?)
+}
+
+/// Turns the base-resume listing for one skill on or off.
+///
+/// Never deletes the row: the slug and aliases still serve job-posting matching, and the
+/// tags pointing at it would cascade away with it.
+pub async fn set_always_list(pool: &PgPool, id: Uuid, on: bool) -> Result<()> {
+    sqlx::query("UPDATE skills SET always_list = $2 WHERE id = $1")
+        .bind(id)
+        .bind(on)
+        .execute(pool)
+        .await?;
+    Ok(())
 }
 
 pub async fn set_bullet_skills(pool: &PgPool, bullet_id: Uuid, names: &[String]) -> Result<()> {

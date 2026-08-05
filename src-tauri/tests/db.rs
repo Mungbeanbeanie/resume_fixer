@@ -251,6 +251,36 @@ async fn skills_upsert_by_slug_not_by_display_name() {
 }
 
 #[tokio::test]
+async fn listing_a_skill_by_hand_toggles_without_losing_the_row() {
+    let pool = db_test!(pool);
+    let existing = db::skill::upsert_by_name(&pool, "Kubernetes")
+        .await
+        .unwrap();
+    assert!(!existing.always_list, "tagging alone does not list a skill");
+
+    let listed = db::skill::add_listed(&pool, "kubernetes").await.unwrap();
+    assert_eq!(
+        listed.id, existing.id,
+        "the same slug must not create two rows"
+    );
+    assert_eq!(
+        listed.name, "Kubernetes",
+        "an existing row keeps its display name"
+    );
+    assert!(listed.always_list);
+
+    db::skill::set_always_list(&pool, listed.id, false)
+        .await
+        .unwrap();
+    let after = db::skill::list(&pool).await.unwrap();
+    let row = after
+        .iter()
+        .find(|s| s.id == listed.id)
+        .expect("row survives");
+    assert!(!row.always_list, "unlisting keeps the row for matching");
+}
+
+#[tokio::test]
 async fn the_seed_migration_left_a_usable_vault() {
     let pool = db_test!(pool);
     let profile = db::profile::get(&pool)

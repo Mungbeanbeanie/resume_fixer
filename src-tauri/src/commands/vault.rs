@@ -79,6 +79,20 @@ pub async fn vault_list_skills(state: State<'_, AppState>) -> Result<Vec<Skill>>
 }
 
 #[tauri::command]
+pub async fn vault_add_skill(state: State<'_, AppState>, name: String) -> Result<Skill> {
+    db::skill::add_listed(&state.pool, &name).await
+}
+
+#[tauri::command]
+pub async fn vault_set_skill_listed(
+    state: State<'_, AppState>,
+    id: Uuid,
+    listed: bool,
+) -> Result<()> {
+    db::skill::set_always_list(&state.pool, id, listed).await
+}
+
+#[tauri::command]
 pub async fn vault_get_profile(state: State<'_, AppState>) -> Result<Option<Profile>> {
     db::profile::get(&state.pool).await
 }

@@ -46,6 +46,8 @@ pub fn run() {
             commands::vault::vault_suggest_bullet_improvements,
             commands::vault::vault_accept_variant,
             commands::vault::vault_list_skills,
+            commands::vault::vault_add_skill,
+            commands::vault::vault_set_skill_listed,
             commands::vault::vault_get_profile,
             commands::vault::vault_upsert_profile,
             commands::generate::generate_ingest_job,

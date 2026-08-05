@@ -63,6 +63,7 @@ pub fn test_skills(pairs: &[(&str, &[&str])]) -> Vec<Skill> {
             slug: slugify(name),
             category: None,
             aliases: aliases.iter().map(|a| a.to_string()).collect(),
+            always_list: false,
         })
         .collect()
 }

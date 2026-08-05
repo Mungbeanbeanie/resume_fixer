@@ -12,10 +12,11 @@ use crate::render::{tectonic, tex};
 use crate::state::{AppState, BaseDraft};
 use uuid::Uuid;
 
-/// The skills actually tagged somewhere in the vault, in `skills` table order.
+/// The skills tagged somewhere in the vault plus the ones marked `always_list`, in `skills`
+/// table order.
 ///
-/// The whole `skills` table would print rows the user never used; the vault's own tags are
-/// the honest list.
+/// The whole `skills` table would print rows the user never used; the vault's own tags plus
+/// what the user claimed by hand in the Skills section are the honest list.
 fn vault_skills(vault: &[ExperienceDetail], all: &[Skill]) -> Vec<String> {
     let tagged: Vec<&str> = vault
         .iter()
@@ -30,7 +31,7 @@ fn vault_skills(vault: &[ExperienceDetail], all: &[Skill]) -> Vec<String> {
         .map(|s| s.slug.as_str())
         .collect();
     all.iter()
-        .filter(|s| tagged.contains(&s.slug.as_str()))
+        .filter(|s| s.always_list || tagged.contains(&s.slug.as_str()))
         .map(|s| s.name.clone())
         .collect()
 }
@@ -125,8 +126,10 @@ mod tests {
     use crate::pipeline::skills::test_skills;
 
     #[test]
-    fn the_skills_line_holds_only_what_the_vault_tags() {
-        let all = test_skills(&[("Python", &[]), ("Rust", &[]), ("SQL", &[])]);
+    fn the_skills_line_holds_what_the_vault_tags_and_what_the_user_listed() {
+        let mut all = test_skills(&[("Python", &[]), ("Rust", &[]), ("SQL", &[])]);
+        // Claimed in the Skills section, tagged on nothing.
+        all[0].always_list = true;
         let vault = vec![ExperienceDetail {
             experience: Experience {
                 id: Uuid::new_v4(),
@@ -141,6 +144,10 @@ mod tests {
             skills: vec![all[2].clone()],
             roles: vec![],
         }];
-        assert_eq!(vault_skills(&vault, &all), vec!["SQL".to_string()]);
+        // Python is listed by hand, SQL is tagged, Rust is neither.
+        assert_eq!(
+            vault_skills(&vault, &all),
+            vec!["Python".to_string(), "SQL".to_string()]
+        );
     }
 }

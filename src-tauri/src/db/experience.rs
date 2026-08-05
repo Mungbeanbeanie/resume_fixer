@@ -63,6 +63,7 @@ struct SkillTag {
     slug: String,
     category: Option<String>,
     aliases: Vec<String>,
+    always_list: bool,
 }
 
 impl SkillTag {
@@ -75,6 +76,7 @@ impl SkillTag {
                 slug: self.slug,
                 category: self.category,
                 aliases: self.aliases,
+                always_list: self.always_list,
             },
         )
     }
@@ -111,14 +113,14 @@ pub async fn list_details(pool: &PgPool) -> Result<Vec<ExperienceDetail>> {
     .await?;
 
     let bullet_skills = sqlx::query_as::<_, SkillTag>(
-        "SELECT bs.bullet_id AS owner, s.id, s.name, s.slug, s.category, s.aliases
+        "SELECT bs.bullet_id AS owner, s.id, s.name, s.slug, s.category, s.aliases, s.always_list
          FROM bullet_skills bs JOIN skills s ON s.id = bs.skill_id ORDER BY s.name",
     )
     .fetch_all(pool)
     .await?;
 
     let experience_skills = sqlx::query_as::<_, SkillTag>(
-        "SELECT es.experience_id AS owner, s.id, s.name, s.slug, s.category, s.aliases
+        "SELECT es.experience_id AS owner, s.id, s.name, s.slug, s.category, s.aliases, s.always_list
          FROM experience_skills es JOIN skills s ON s.id = es.skill_id ORDER BY s.name",
     )
     .fetch_all(pool)

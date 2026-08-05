@@ -97,6 +97,8 @@ pub struct Skill {
     pub slug: String,
     pub category: Option<String>,
     pub aliases: Vec<String>,
+    /// Prints on the base resume even when nothing in the vault tags it.
+    pub always_list: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
