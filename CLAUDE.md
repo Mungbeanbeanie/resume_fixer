@@ -125,11 +125,15 @@ not touch `sqlx` types. Repositories do not call the model.
   experience tags catch relevance the bullet text does not spell out. Both feed retrieval.
 - **Skill matching is by `slug` plus `aliases[]`**, always case-folded. Never match on
   `skills.name`.
-- **Resumes must fit one page.** The fit loop shrinks in two moves, in order: retire the
-  lowest-scoring experience whole, and only when nothing may be retired, drop the
-  lowest-scoring bullet from the largest section. Depth beats breadth — three entries with
-  three lines each carry more than eight with one. Up to 6 passes, never emptying an
-  experience, never retiring education, a pinned entry, or the last one standing.
+- **Resumes must fit one page, and must fill it.** The fit loop shrinks in two moves, in
+  order: retire the lowest-scoring experience whole, and only when nothing may be retired,
+  drop the lowest-scoring bullet from the largest section. Depth beats breadth — three
+  entries with three lines each carry more than eight with one. Never emptying an
+  experience, never retiring education, a pinned entry, or the last one standing. Once it
+  reaches one page it runs the same two moves backwards, breadth first: un-retire the
+  strongest experience, then restore the strongest benched bullet, reverting the move that
+  spills to a second page. What the cap and the shrink take goes on a bench inside
+  `ResumePlan`, which is what the grow pass spends.
 - **Experiences are ranked two ways.** A tailored resume ranks by fit for the posting (mean
   bullet score from `retrieval`); the base resume has no posting, so it ranks by intrinsic
   merit from `pipeline/strength.rs` — quantified outcome, then recency, then skill density,
@@ -155,10 +159,17 @@ not touch `sqlx` types. Repositories do not call the model.
   grounding has nothing to check. It does run the fit loop, ranked by intrinsic merit rather
   than fit for a posting, and obeys the same three-bullets-per-experience cap. Both
   documents can be trimmed by hand before saving.
-- **At most three bullets print under one experience** (`ResumePlan::cap_bullets`). The cut
-  is by score, so the fit loop rarely has anything left to do; ordering stays the vault's.
-  Roles the cap empties are dropped, except under education and activities, where the
-  heading is the content.
+- **At most three bullets print under one experience — two under a project**
+  (`ResumePlan::cap_bullets`). A project takes a third only when it scores within 0.8 of
+  that project's own best line, because three projects with strong bullets say more than two
+  padded to three. The cut is by score; ordering stays the vault's. Roles the cap empties
+  are dropped, except under education and activities, where the heading is the content.
+  Capping lean is deliberate — the grow pass restores from the bench when the page has room.
+- **A user's edit may add a bullet, not only remove one.** `apply_edits` takes the vault, so
+  a `BulletEdit` with `keep: true` naming a line the plan is not printing fetches it and
+  prints it verbatim. Limited to experiences already on the resume: an entry the fit loop
+  left off comes back whole or not at all. `revise` runs no cap and no fit loop, so what the
+  user adds by hand stays.
 
 ## Bullet quality standard
 

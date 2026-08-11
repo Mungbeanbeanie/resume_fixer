@@ -6,12 +6,17 @@ export type ExperienceKind =
   | "education"
   | "certification"
   | "activity";
+/** In the order an application moves through them. */
 export type ApplicationStatus =
   | "saved"
   | "applied"
-  | "rejected"
-  | "interview"
+  | "oa_received"
+  | "oa_completed"
+  | "interview_1"
+  | "interview_2"
+  | "interview_3"
   | "offer"
+  | "rejected"
   | "withdrawn";
 export type JobSource = "fetched" | "pasted";
 
@@ -48,6 +53,8 @@ export interface Role {
   start_date: string;
   end_date: string | null;
   date_override: string | null;
+  /** Free text, printed after the degree on education entries. */
+  gpa: string | null;
   display_order: number;
   is_active: boolean;
 }
@@ -109,6 +116,7 @@ export interface RoleInput {
   start_date: string;
   end_date: string | null;
   date_override: string | null;
+  gpa: string | null;
   display_order: number;
   is_active: boolean;
 }
@@ -187,19 +195,15 @@ export interface ApplicationPatch {
   notes: string | null;
 }
 
-export interface StatusStats {
-  saved: number;
-  applied: number;
-  interview: number;
-  offer: number;
-  rejected: number;
-  withdrawn: number;
-}
+/** Counts behind the Library graph. A status nobody is sitting on is absent, not zero. */
+export type StatusStats = Partial<Record<ApplicationStatus, number>>;
 
 export interface IngestResult {
   text: string;
   source: JobSource;
   needs_paste: boolean;
+  /** Why the fetch or extraction gave up, when it did. */
+  reason: string | null;
 }
 
 export interface UsedBullet {

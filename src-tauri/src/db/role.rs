@@ -6,17 +6,18 @@ use sqlx::PgPool;
 use uuid::Uuid;
 
 const COLS: &str = "id, experience_id, title, location, start_date, end_date, date_override,
-                    display_order, is_active";
+                    gpa, display_order, is_active";
 
 pub async fn upsert(pool: &PgPool, input: &RoleInput) -> Result<Role> {
     Ok(sqlx::query_as::<_, Role>(&format!(
         "INSERT INTO roles (id, experience_id, title, location, start_date, end_date,
-                            date_override, display_order, is_active)
-         VALUES (COALESCE($1, gen_random_uuid()), $2, $3, $4, $5, $6, $7, $8, $9)
+                            date_override, gpa, display_order, is_active)
+         VALUES (COALESCE($1, gen_random_uuid()), $2, $3, $4, $5, $6, $7, $8, $9, $10)
          ON CONFLICT (id) DO UPDATE
            SET experience_id = EXCLUDED.experience_id, title = EXCLUDED.title,
                location = EXCLUDED.location, start_date = EXCLUDED.start_date,
                end_date = EXCLUDED.end_date, date_override = EXCLUDED.date_override,
+               gpa = EXCLUDED.gpa,
                display_order = EXCLUDED.display_order, is_active = EXCLUDED.is_active
          RETURNING {COLS}"
     ))
@@ -27,6 +28,7 @@ pub async fn upsert(pool: &PgPool, input: &RoleInput) -> Result<Role> {
     .bind(input.start_date)
     .bind(input.end_date)
     .bind(&input.date_override)
+    .bind(&input.gpa)
     .bind(input.display_order)
     .bind(input.is_active)
     .fetch_one(pool)

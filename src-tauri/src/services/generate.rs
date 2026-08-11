@@ -34,6 +34,21 @@ fn keyword_scan(job_text: &str, all: &[Skill]) -> ParsedJob {
     }
 }
 
+/// What the posting is about, for `retrieval`'s topical signal.
+///
+/// The parser already reports these; nothing scored them, so a policy team and an agent
+/// team ranked the vault identically as long as they named the same languages. The title
+/// counts because it is often the only place the domain appears at all.
+fn topics(parsed: &ParsedJob) -> Vec<String> {
+    parsed
+        .domain
+        .iter()
+        .chain(parsed.title.iter())
+        .cloned()
+        .chain(parsed.soft_signals.iter().cloned())
+        .collect()
+}
+
 /// Runs the whole pipeline and parks the result as an in-memory draft.
 ///
 /// Rejects an empty job description — everything downstream would be guesswork.
@@ -69,7 +84,7 @@ pub async fn generate(
             "the vault is empty — add an experience before generating".into(),
         ));
     }
-    let shortlist = retrieval::shortlist(candidates, &parsed.hard_skills, &index);
+    let shortlist = retrieval::shortlist(candidates, &parsed.hard_skills, &topics(&parsed), &index);
 
     let outcome = match select::run(
         state.llm.as_ref(),
@@ -144,10 +159,10 @@ pub async fn generate(
 
 /// Reworks a draft to the user's own edits and recompiles it.
 ///
-/// No model runs and no fit loop: the user is fine-tuning, and paying for their edit by
-/// silently dropping someone else's bullet would undo the thing they asked for. An
-/// overlong result comes back with its real page count for the caller to warn about.
-/// Rejects an edit set that would empty the resume.
+/// No model runs, no fit loop, and no bullet cap: the user is fine-tuning, and paying for
+/// their edit by silently dropping someone else's bullet — or the one they just added —
+/// would undo the thing they asked for. An overlong result comes back with its real page
+/// count for the caller to warn about. Rejects an edit set that would empty the resume.
 pub async fn revise(
     state: &AppState,
     draft_id: Uuid,
@@ -157,13 +172,15 @@ pub async fn revise(
         .await?
         .map(|t| t.source)
         .unwrap_or_else(|| DEFAULT_TEMPLATE.to_string());
+    // An edit may name a bullet this draft never printed; the vault is where its text lives.
+    let vault = db::experience::list_details(&state.pool).await?;
 
     let mut drafts = state.drafts.lock().await;
     let draft = drafts
         .get_mut(&draft_id)
         .ok_or_else(|| AppError::NotFound("draft".into()))?;
 
-    draft.plan.apply_edits(&edits);
+    draft.plan.apply_edits(&vault, &edits);
     draft.plan.prune_for(&template);
     if draft.plan.bullet_count() == 0 {
         return Err(AppError::Invalid(

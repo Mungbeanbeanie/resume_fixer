@@ -4,6 +4,7 @@
 
 use chrono::{DateTime, NaiveDate, Utc};
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use uuid::Uuid;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, sqlx::Type)]
@@ -17,15 +18,28 @@ pub enum ExperienceKind {
     Activity,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, sqlx::Type)]
-#[sqlx(type_name = "application_status", rename_all = "lowercase")]
-#[serde(rename_all = "lowercase")]
+/// In the order an application moves through them, which is the order the dropdown offers.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, sqlx::Type)]
+#[sqlx(type_name = "application_status", rename_all = "snake_case")]
+#[serde(rename_all = "snake_case")]
 pub enum ApplicationStatus {
     Saved,
     Applied,
-    Rejected,
-    Interview,
+    OaReceived,
+    OaCompleted,
+    // The round numbers need spelling out: neither serde nor sqlx puts an underscore before
+    // a digit, and the database values do.
+    #[sqlx(rename = "interview_1")]
+    #[serde(rename = "interview_1")]
+    Interview1,
+    #[sqlx(rename = "interview_2")]
+    #[serde(rename = "interview_2")]
+    Interview2,
+    #[sqlx(rename = "interview_3")]
+    #[serde(rename = "interview_3")]
+    Interview3,
     Offer,
+    Rejected,
     Withdrawn,
 }
 
@@ -81,6 +95,9 @@ pub struct Role {
     pub start_date: NaiveDate,
     pub end_date: Option<NaiveDate>,
     pub date_override: Option<String>,
+    /// Free text, printed after the degree on education entries. Free rather than numeric
+    /// so "3.87/4.00" and "3.9 (Major: 4.0)" both survive to the page as written.
+    pub gpa: Option<String>,
     pub display_order: i32,
     pub is_active: bool,
 }
@@ -164,6 +181,7 @@ pub struct RoleInput {
     pub start_date: NaiveDate,
     pub end_date: Option<NaiveDate>,
     pub date_override: Option<String>,
+    pub gpa: Option<String>,
     pub display_order: i32,
     pub is_active: bool,
 }
@@ -275,28 +293,10 @@ pub struct ApplicationPatch {
     pub notes: Option<String>,
 }
 
-/// Counts behind the Library graph. `saved` and `withdrawn` were never sent, so they
-/// are reported separately and excluded from the bar.
-#[derive(Debug, Clone, Default, Serialize)]
-pub struct StatusStats {
-    pub saved: i64,
-    pub applied: i64,
-    pub interview: i64,
-    pub offer: i64,
-    pub rejected: i64,
-    pub withdrawn: i64,
-}
-
-impl StatusStats {
-    /// Share of sent applications that got any answer, interview/offer/rejection alike.
-    pub fn response_rate(&self) -> f32 {
-        let sent = self.applied + self.interview + self.offer + self.rejected;
-        if sent == 0 {
-            return 0.0;
-        }
-        (self.interview + self.offer + self.rejected) as f32 / sent as f32
-    }
-}
+/// Counts behind the Library graph, keyed by status. A status nobody is sitting on is
+/// absent rather than zero. A map rather than a field per status: the set of statuses moves,
+/// and the graph decides how to group them.
+pub type StatusStats = HashMap<ApplicationStatus, i64>;
 
 // ── Pipeline results ────────────────────────────────────────────────────
 
@@ -305,6 +305,9 @@ pub struct IngestResult {
     pub text: String,
     pub source: JobSource,
     pub needs_paste: bool,
+    /// Why the fetch or the extraction gave up, when it did. A login wall, a timeout and a
+    /// JavaScript-rendered page all need different things from the user.
+    pub reason: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -385,16 +388,28 @@ pub struct HealthReport {
 mod tests {
     use super::*;
 
+    /// The database values are what the two enums have to agree on, and a typo in either
+    /// only shows up as a decode error at runtime.
     #[test]
-    fn response_rate_ignores_unsent() {
-        let s = StatusStats {
-            saved: 10,
-            applied: 2,
-            interview: 1,
-            rejected: 1,
-            ..Default::default()
-        };
-        assert_eq!(s.response_rate(), 0.5);
-        assert_eq!(StatusStats::default().response_rate(), 0.0);
+    fn every_status_serializes_to_its_database_value() {
+        let names: Vec<String> = [
+            ApplicationStatus::Saved,
+            ApplicationStatus::Applied,
+            ApplicationStatus::OaReceived,
+            ApplicationStatus::OaCompleted,
+            ApplicationStatus::Interview1,
+            ApplicationStatus::Interview2,
+            ApplicationStatus::Interview3,
+            ApplicationStatus::Offer,
+            ApplicationStatus::Rejected,
+            ApplicationStatus::Withdrawn,
+        ]
+        .iter()
+        .map(|s| serde_json::to_string(s).expect("a plain enum serializes"))
+        .collect();
+        assert_eq!(
+            names.join(","),
+            r#""saved","applied","oa_received","oa_completed","interview_1","interview_2","interview_3","offer","rejected","withdrawn""#
+        );
     }
 }

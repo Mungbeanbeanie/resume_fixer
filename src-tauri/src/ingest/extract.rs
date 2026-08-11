@@ -1,7 +1,7 @@
 //! Turning a job posting page into plain text.
 
 use crate::error::{AppError, Result};
-use scraper::{ElementRef, Html, Node};
+use scraper::{ElementRef, Html, Node, Selector};
 
 /// Chrome and navigation never contain the posting.
 const STRIPPED: [&str; 9] = [
@@ -80,13 +80,69 @@ pub fn looks_like_a_posting(text: &str, min_chars: usize) -> bool {
     REQUIRED_TOKENS.iter().any(|t| lower.contains(t))
 }
 
-/// Extracts the densest block of prose from an HTML page.
+/// Pulls `description` out of a schema.org `JobPosting` in a `<script type="ld+json">` block.
 ///
-/// Rejects a page whose best candidate is shorter than `min_chars` or reads like chrome
-/// rather than a posting — the caller then offers the paste box instead of guessing.
+/// Boards emit this because Google Jobs indexes it, so it is present far more often than a
+/// parseable body is — and on a JS-rendered page it is frequently the only copy of the
+/// posting in the HTML at all. Rejects anything that is not a `JobPosting`: the same pages
+/// also carry `Organization` and `BreadcrumbList` blocks.
+fn json_ld_posting(doc: &Html) -> Option<String> {
+    fn description(v: &serde_json::Value) -> Option<&str> {
+        match v {
+            serde_json::Value::Array(items) => items.iter().find_map(description),
+            serde_json::Value::Object(map) => {
+                let is_posting = match map.get("@type") {
+                    Some(serde_json::Value::String(t)) => t == "JobPosting",
+                    Some(serde_json::Value::Array(ts)) => ts.iter().any(|t| t == "JobPosting"),
+                    _ => false,
+                };
+                if is_posting {
+                    if let Some(serde_json::Value::String(d)) = map.get("description") {
+                        return Some(d);
+                    }
+                }
+                // Many pages wrap everything in one @graph array.
+                map.get("@graph").and_then(description)
+            }
+            _ => None,
+        }
+    }
+
+    let selector = Selector::parse(r#"script[type="application/ld+json"]"#).ok()?;
+    for script in doc.select(&selector) {
+        let raw = script.text().collect::<String>();
+        let Ok(value) = serde_json::from_str::<serde_json::Value>(&raw) else {
+            continue;
+        };
+        if let Some(html) = description(&value) {
+            // The description is itself escaped HTML — run it back through the same path.
+            let inner = Html::parse_fragment(html);
+            let (text, _) = text_and_tags(inner.root_element());
+            let text = normalize(&text);
+            if !text.is_empty() {
+                return Some(text);
+            }
+        }
+    }
+    None
+}
+
+/// Extracts the job description from an HTML page.
+///
+/// Tries the structured `JobPosting` block first, then falls back to the longest block of
+/// prose that reads like a posting. Rejects a page whose best candidate is shorter than
+/// `min_chars` or reads like chrome — the caller then offers the paste box instead of
+/// guessing.
 pub fn extract(html: &str, min_chars: usize) -> Result<String> {
     let doc = Html::parse_document(html);
-    let mut best: Option<(f32, String)> = None;
+
+    if let Some(text) = json_ld_posting(&doc) {
+        if looks_like_a_posting(&text, min_chars) {
+            return Ok(text);
+        }
+    }
+
+    let mut best: Option<(usize, f32, String)> = None;
     let mut longest: Option<(usize, String)> = None;
 
     for element in doc.tree.root().descendants().filter_map(ElementRef::wrap) {
@@ -101,11 +157,18 @@ pub fn extract(html: &str, min_chars: usize) -> Result<String> {
         if text.is_empty() {
             continue;
         }
-        // Density picks prose over navigation; the length floor keeps it from picking a
-        // single dense sentence out of a long posting.
-        let density = text.len() as f32 / tags as f32;
-        if text.len() >= min_chars && best.as_ref().is_none_or(|(d, _)| density > *d) {
-            best = Some((density, text.clone()));
+        // Length decides, then density. Ranking on density alone picked the smallest block
+        // that cleared the floor: a 400-char paragraph in two tags scores 200, while the
+        // real posting — 3000 chars across 150 list items and headings — scores 20. The
+        // posting check gates first, so "longest" cannot drift onto the whole page chrome.
+        if looks_like_a_posting(&text, min_chars) {
+            let density = text.len() as f32 / tags as f32;
+            let better = best
+                .as_ref()
+                .is_none_or(|(l, d, _)| text.len() > *l || (text.len() == *l && density > *d));
+            if better {
+                best = Some((text.len(), density, text.clone()));
+            }
         }
         if longest.as_ref().is_none_or(|(l, _)| text.len() > *l) {
             longest = Some((text.len(), text));
@@ -113,7 +176,7 @@ pub fn extract(html: &str, min_chars: usize) -> Result<String> {
     }
 
     let text = best
-        .map(|(_, t)| t)
+        .map(|(_, _, t)| t)
         .or_else(|| longest.map(|(_, t)| t))
         .ok_or(AppError::ExtractFailed)?;
 
@@ -180,5 +243,48 @@ mod tests {
     #[test]
     fn whitespace_collapses_without_swallowing_paragraph_breaks() {
         assert_eq!(normalize("  a   b \n\n\n c  "), "a b\n\nc");
+    }
+
+    /// A JavaScript-rendered board leaves nothing in the body, but still ships the posting
+    /// as structured data for Google Jobs. That block is the only copy on the page.
+    #[test]
+    fn a_json_ld_posting_is_read_from_a_page_with_an_empty_body() {
+        let page = r#"
+        <html><head>
+          <script type="application/ld+json">{"@type":"Organization","name":"Acme"}</script>
+          <script type="application/ld+json">
+          {"@context":"https://schema.org/","@type":"JobPosting","title":"SWE Intern",
+           "description":"&lt;p&gt;Responsibilities: write Python services backed by PostgreSQL.&lt;/p&gt;&lt;ul&gt;&lt;li&gt;Qualifications: experience with SQL and Linux, and a degree in progress.&lt;/li&gt;&lt;li&gt;Skills in Docker and AWS are a plus for this role on our data team.&lt;/li&gt;&lt;/ul&gt;"}
+          </script>
+        </head><body><div id="root"></div></body></html>"#;
+        let text = extract(page, 200).unwrap();
+        assert!(text.contains("write Python services backed by PostgreSQL"));
+        assert!(text.contains("Qualifications"));
+        assert!(
+            !text.contains("Acme"),
+            "the Organization block is not a posting"
+        );
+    }
+
+    /// Ranking on density alone returned the short paragraph and threw the posting away.
+    #[test]
+    fn the_longest_passing_block_beats_a_small_dense_one() {
+        let long = "Qualifications and requirements for this role. ".repeat(20);
+        let page = format!(
+            "<html><body>
+               <div><p>{}</p></div>
+               <div>{}</div>
+             </body></html>",
+            "We need someone with experience and skills to do the job here. ".repeat(8),
+            long.split(' ')
+                .map(|w| format!("<li>{w}</li>"))
+                .collect::<String>()
+        );
+        let text = extract(&page, 400).unwrap();
+        assert!(
+            text.len() > long.len() / 2,
+            "the dense short block won: {text}"
+        );
+        assert!(text.contains("Qualifications"));
     }
 }

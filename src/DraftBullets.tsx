@@ -1,6 +1,29 @@
 import { useEffect, useState } from "react";
-import { errorMessage } from "./ipc";
-import type { BulletEdit, UsedBullet } from "./types";
+import { errorMessage, vault } from "./ipc";
+import type { BulletEdit, ExperienceDetail, UsedBullet } from "./types";
+
+/** A vault bullet this document is not printing, offered under the entry it belongs to. */
+interface Spare {
+  bullet_id: string;
+  text: string;
+  org_name: string;
+}
+
+/// The vault bullets that could join this document but are not on it.
+///
+/// Limited to experiences already printing something: adding a line to an entry the resume
+/// left off would print a heading with one bullet under it, and that entry has to come back
+/// whole or not at all.
+function spares(all: ExperienceDetail[], printed: UsedBullet[]): Spare[] {
+  const used = new Set(printed.map((b) => b.bullet_id));
+  return all.flatMap((e) => {
+    const bullets = e.roles.flatMap((r) => r.bullets.filter((b) => b.is_active));
+    if (!e.is_active || !bullets.some((b) => used.has(b.id))) return [];
+    return bullets
+      .filter((b) => !used.has(b.id))
+      .map((b) => ({ bullet_id: b.id, text: b.text, org_name: e.org_name }));
+  });
+}
 
 // The lines a resume prints, editable. Edits apply to the document in front of you — the
 // vault keeps the wording it had, so trimming one resume never rewrites your master copy.
@@ -15,6 +38,8 @@ export default function DraftBullets({
   onApply: (edits: BulletEdit[]) => Promise<void>;
 }) {
   const [edits, setEdits] = useState<Record<string, { text: string; keep: boolean }>>({});
+  const [available, setAvailable] = useState<Spare[]>([]);
+  const [adds, setAdds] = useState<Set<string>>(new Set());
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -22,24 +47,53 @@ export default function DraftBullets({
   // already baked into them.
   useEffect(() => {
     setEdits({});
+    setAdds(new Set());
     setError(null);
   }, [bullets]);
 
+  useEffect(() => {
+    let live = true;
+    vault
+      .listExperiences()
+      .then((all) => live && setAvailable(spares(all, bullets)))
+      .catch(() => live && setAvailable([]));
+    return () => {
+      live = false;
+    };
+  }, [bullets]);
+
   const stateOf = (b: UsedBullet) => edits[b.bullet_id] ?? { text: b.rendered_text, keep: true };
-  const dirty = bullets.some((b) => {
-    const e = stateOf(b);
-    return !e.keep || e.text.trim() !== b.rendered_text;
-  });
-  const keeping = bullets.filter((b) => stateOf(b).keep).length;
+  const dirty =
+    adds.size > 0 ||
+    bullets.some((b) => {
+      const e = stateOf(b);
+      return !e.keep || e.text.trim() !== b.rendered_text;
+    });
+  const keeping = bullets.filter((b) => stateOf(b).keep).length + adds.size;
 
   function patch(b: UsedBullet, next: Partial<{ text: string; keep: boolean }>) {
     setEdits((prev) => ({ ...prev, [b.bullet_id]: { ...stateOf(b), ...next } }));
   }
 
+  function toggleAdd(id: string) {
+    setAdds((prev) => {
+      const next = new Set(prev);
+      if (!next.delete(id)) next.add(id);
+      return next;
+    });
+  }
+
   async function apply() {
     setBusy(true);
     try {
-      await onApply(bullets.map((b) => ({ bullet_id: b.bullet_id, ...stateOf(b) })));
+      // One list: a printed line kept or dropped, a spare one added by keeping it. The
+      // backend takes the bullet's own wording for anything it is not already printing.
+      await onApply([
+        ...bullets.map((b) => ({ bullet_id: b.bullet_id, ...stateOf(b) })),
+        ...available
+          .filter((s) => adds.has(s.bullet_id))
+          .map((s) => ({ bullet_id: s.bullet_id, text: s.text, keep: true })),
+      ]);
       setError(null);
     } catch (e) {
       setError(errorMessage(e));
@@ -60,6 +114,7 @@ export default function DraftBullets({
         {reworded > 0 && `, ${reworded} reworded`}
         {edited > 0 && `, ${edited} edited`}
         {dropped > 0 && `, ${dropped} dropped to fit`}
+        {available.length > 0 && `, ${available.length} more available`}
       </summary>
 
       <div className="col" style={{ gap: 10, marginTop: 10 }}>
@@ -91,6 +146,29 @@ export default function DraftBullets({
           );
         })}
 
+        {available.length > 0 && (
+          <>
+            <span className="field-label" style={{ marginTop: 6 }}>
+              Not on this resume — from the entries it already shows
+            </span>
+            {available.map((s) => (
+              <div className="bullet" key={s.bullet_id}>
+                <div style={{ flex: 1, opacity: adds.has(s.bullet_id) ? 1 : 0.55 }}>
+                  <div className="row" style={{ gap: 6, marginBottom: 3 }}>
+                    <span className="muted" style={{ fontSize: 12 }}>
+                      {s.org_name}
+                    </span>
+                  </div>
+                  <textarea rows={2} value={s.text} disabled readOnly />
+                </div>
+                <button className="quiet" onClick={() => toggleAdd(s.bullet_id)}>
+                  {adds.has(s.bullet_id) ? "Undo" : "Add"}
+                </button>
+              </div>
+            ))}
+          </>
+        )}
+
         {error && <div className="error">{error}</div>}
 
         <div className="row">
@@ -98,7 +176,14 @@ export default function DraftBullets({
             {busy ? "Recompiling…" : "Apply changes"}
           </button>
           {dirty && (
-            <button className="quiet" onClick={() => setEdits({})} disabled={busy}>
+            <button
+              className="quiet"
+              onClick={() => {
+                setEdits({});
+                setAdds(new Set());
+              }}
+              disabled={busy}
+            >
               reset
             </button>
           )}

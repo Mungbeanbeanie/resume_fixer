@@ -66,6 +66,7 @@ pub async fn render(state: &AppState, template_id: Option<Uuid>) -> Result<BaseP
         retired: fitted.retired,
     };
     *state.base_preview.lock().await = Some(BaseDraft {
+        template_id: template.id,
         template_name: template.name,
         plan,
         tex: fitted.tex,
@@ -81,16 +82,19 @@ pub async fn render(state: &AppState, template_id: Option<Uuid>) -> Result<BaseP
 /// Same rule as a generated draft: the edit belongs to this document, not to the vault, and
 /// no model runs. Rejects an edit set that would leave nothing to print.
 pub async fn revise(state: &AppState, edits: Vec<BulletEdit>) -> Result<BasePreview> {
-    let template = db::template::get_active(&state.pool)
-        .await?
-        .ok_or_else(|| AppError::NotFound("template".into()))?;
+    // An edit may name a bullet this preview never printed; the vault is where its text lives.
+    let vault = db::experience::list_details(&state.pool).await?;
 
     let mut held = state.base_preview.lock().await;
     let draft = held
         .as_mut()
         .ok_or_else(|| AppError::NotFound("base resume preview".into()))?;
 
-    draft.plan.apply_edits(&edits);
+    let template = db::template::get(&state.pool, draft.template_id)
+        .await?
+        .ok_or_else(|| AppError::NotFound("template".into()))?;
+
+    draft.plan.apply_edits(&vault, &edits);
     if draft.plan.bullet_count() == 0 {
         return Err(AppError::Invalid(
             "that would leave the resume with no bullets — keep at least one".into(),

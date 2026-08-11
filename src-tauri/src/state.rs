@@ -32,6 +32,10 @@ pub struct Draft {
 /// The compiled base resume the user is looking at, before they name it. Same rule as a
 /// draft: nothing is written until they save.
 pub struct BaseDraft {
+    /// The template this preview was built with. `revise` recompiles with this one, not
+    /// with whichever template happens to be active — previewing a non-active template and
+    /// then editing a line must not silently re-render the document under another layout.
+    pub template_id: Uuid,
     pub template_name: String,
     pub plan: ResumePlan,
     pub tex: String,

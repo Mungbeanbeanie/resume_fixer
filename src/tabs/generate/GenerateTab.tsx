@@ -74,7 +74,13 @@ const STATUS: Record<Phase, string> = {
   saving: "Saving to the library…",
 };
 
-export default function GenerateTab({ health }: { health: HealthReport | null }) {
+export default function GenerateTab({
+  health,
+  active,
+}: {
+  health: HealthReport | null;
+  active: boolean;
+}) {
   const [state, dispatch] = useReducer(reducer, initial);
   const busy = state.phase === "ingesting" || state.phase === "generating";
   const urlRef = useRef<HTMLInputElement>(null);
@@ -93,7 +99,7 @@ export default function GenerateTab({ health }: { health: HealthReport | null })
             patch: {
               phase: "idle",
               pasteOpen: true,
-              error: "That page did not give up a job description. Paste it instead.",
+              error: `${ingested.reason ?? "That page did not give up a job description."} Paste it instead.`,
             },
           });
           return;
@@ -126,9 +132,11 @@ export default function GenerateTab({ health }: { health: HealthReport | null })
     }
   }
 
-  // ⌘Enter generates from wherever the cursor is.
+  // ⌘Enter generates from wherever the cursor is. This tab stays mounted while another is
+  // showing, so the shortcut has to check that it is the one on screen.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      if (!active) return;
       if ((e.metaKey || e.ctrlKey) && e.key === "Enter" && !busy) {
         e.preventDefault();
         void run();
@@ -230,7 +238,12 @@ export default function GenerateTab({ health }: { health: HealthReport | null })
           src={`${convertFileSrc(r.pdf_path)}?v=${state.revision}`}
           type="application/pdf"
         />
-        <button className="quiet" onClick={() => openPath(r.pdf_path)}>
+        <button
+          className="quiet"
+          onClick={() =>
+            openPath(r.pdf_path).catch((e) => dispatch({ type: "failed", error: errorMessage(e) }))
+          }
+        >
           Open in the system viewer
         </button>
 

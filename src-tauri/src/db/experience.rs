@@ -101,7 +101,7 @@ pub async fn list_details(pool: &PgPool) -> Result<Vec<ExperienceDetail>> {
 
     let roles = sqlx::query_as::<_, Role>(
         "SELECT id, experience_id, title, location, start_date, end_date, date_override,
-                display_order, is_active
+                gpa, display_order, is_active
          FROM roles ORDER BY start_date DESC, display_order",
     )
     .fetch_all(pool)

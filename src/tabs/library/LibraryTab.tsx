@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { openPath } from "@tauri-apps/plugin-opener";
+import { openPath, openUrl } from "@tauri-apps/plugin-opener";
 import { errorMessage, library } from "../../ipc";
 import type {
   ApplicationDetail,
@@ -12,23 +12,30 @@ import StackedBar from "./StackedBar";
 const STATUSES: ApplicationStatus[] = [
   "saved",
   "applied",
-  "interview",
+  "oa_received",
+  "oa_completed",
+  "interview_1",
+  "interview_2",
+  "interview_3",
   "offer",
   "rejected",
   "withdrawn",
 ];
 
+// The stored value read out loud: "oa_received" is a database value, not a word.
+const label = (status: ApplicationStatus) =>
+  status.replace(/_/g, " ").replace(/^oa/, "OA");
+
 function StatusPill({ status }: { status: ApplicationStatus }) {
-  const muted = status === "saved" || status === "withdrawn";
-  const good = status === "interview" || status === "offer";
-  return <span className={`pill ${good ? "on" : muted ? "" : ""}`}>{status}</span>;
+  const good = status.startsWith("interview") || status === "offer";
+  return <span className={`pill ${good ? "on" : ""}`}>{label(status)}</span>;
 }
 
 function day(iso: string | null) {
   return iso ? new Date(iso).toLocaleDateString(undefined, { month: "short", day: "numeric" }) : "—";
 }
 
-export default function LibraryTab() {
+export default function LibraryTab({ active }: { active: boolean }) {
   const [rows, setRows] = useState<ApplicationSummary[]>([]);
   const [stats, setStats] = useState<StatusStats | null>(null);
   const [open, setOpen] = useState<ApplicationDetail | null>(null);
@@ -45,9 +52,11 @@ export default function LibraryTab() {
     }
   }, []);
 
+  // This tab stays mounted while another is showing, so a resume saved from Generate lands
+  // in the database behind its back. Re-read every time it comes to the front.
   useEffect(() => {
-    void load();
-  }, [load]);
+    if (active) void load();
+  }, [active, load]);
 
   async function setStatus(id: string, status: ApplicationStatus) {
     try {
@@ -114,7 +123,7 @@ export default function LibraryTab() {
                       className="quiet"
                       onClick={(e) => {
                         e.stopPropagation();
-                        void openPath(r.pdf_path!);
+                        openPath(r.pdf_path!).catch((err) => setError(errorMessage(err)));
                       }}
                     >
                       PDF
@@ -129,7 +138,7 @@ export default function LibraryTab() {
                       className="quiet"
                       onClick={(e) => {
                         e.stopPropagation();
-                        void openPath(r.url!);
+                        openUrl(r.url!).catch((err) => setError(errorMessage(err)));
                       }}
                     >
                       link
@@ -162,12 +171,18 @@ export default function LibraryTab() {
             >
               {STATUSES.map((s) => (
                 <option key={s} value={s}>
-                  {s}
+                  {label(s)}
                 </option>
               ))}
             </select>
             {open.resume?.pdf_path && (
-              <button onClick={() => openPath(open.resume!.pdf_path!)}>Open PDF</button>
+              <button
+                onClick={() =>
+                  openPath(open.resume!.pdf_path!).catch((e) => setError(errorMessage(e)))
+                }
+              >
+                Open PDF
+              </button>
             )}
           </div>
 
@@ -175,7 +190,7 @@ export default function LibraryTab() {
             <span className="field-label">History</span>
             {open.history.map((h, i) => (
               <div key={i} className="muted" style={{ fontSize: 12 }}>
-                {h.status} · {new Date(h.changed_at).toLocaleString()}
+                {label(h.status)} · {new Date(h.changed_at).toLocaleString()}
               </div>
             ))}
           </div>

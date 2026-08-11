@@ -158,11 +158,10 @@
 {% endif %}
 {% if certifications %}
 %-----------Certifications-----------
+% Set tight: this block closes the page, and its leading costs a line of evidence above it.
 \section{Certifications}
-\begin{itemize}[leftmargin=0.15in, label={}]
-    \small{\item{
-     {% for c in certifications %}{{ c }}{% if not loop.last %} $|$ {% endif %}{% endfor %}
-     }}
+\begin{itemize}[leftmargin=0.15in, label={}, itemsep=0pt, parsep=0pt, topsep=-6pt]
+    \small{\item{ {% for c in certifications %}{{ c }}{% if not loop.last %} $|$ {% endif %}{% endfor %}}}
 \end{itemize}
 {% endif %}
 %-------------------------------------------

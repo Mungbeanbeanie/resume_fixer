@@ -28,6 +28,7 @@ function RoleBlock({ role }: { role: RoleDetail }) {
         start_date: next.start_date,
         end_date: next.end_date,
         date_override: next.date_override,
+        gpa: next.gpa,
         display_order: next.display_order,
         is_active: next.is_active,
       });
@@ -232,6 +233,7 @@ export default function ExperienceCard({ detail }: { detail: ExperienceDetail })
                   start_date: new Date().toISOString().slice(0, 10),
                   end_date: null,
                   date_override: null,
+                  gpa: null,
                   display_order: detail.roles.length,
                   is_active: true,
                 });

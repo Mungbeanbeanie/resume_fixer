@@ -24,7 +24,10 @@ of each section has to be the one that earns the rest.
 
 Choosing between two bullets, in this order:
 1. Relevance to the posting wins. A bullet from three years ago that names what the posting
-   asks for beats a recent one that does not.
+   asks for beats a recent one that does not. Relevance means the subject matter and the
+   emphases the posting names, not only the technologies: for a policy job, work on
+   elections or government counts as relevant even when the stack is unremarkable, and for
+   a job building agents, agent work counts even when it is a side project.
 2. Then the one carrying a measurable outcome — a number, a percentage, a scale. That is
    the single most persuasive thing on a resume, and roughly half of what you pick should
    have one where the history offers it. Never invent a number to reach that ratio: a

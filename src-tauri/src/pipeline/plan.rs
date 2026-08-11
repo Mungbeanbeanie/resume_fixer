@@ -3,8 +3,8 @@
 //! Every line here carries the `bullet_id` it came from. The renderer is fed from this
 //! struct and from nothing else, so a line without a stored bullet behind it cannot exist.
 
-use crate::domain::{BulletEdit, Profile, UsedBullet};
-use crate::render::tex::{ExperienceBlock, ProjectBlock, RenderInput, RoleBlock};
+use crate::domain::{BulletEdit, ExperienceDetail, Profile, UsedBullet};
+use crate::render::tex::{format_dates, ExperienceBlock, ProjectBlock, RenderInput, RoleBlock};
 use std::collections::HashSet;
 use uuid::Uuid;
 
@@ -14,6 +14,19 @@ use uuid::Uuid;
 /// Capping here rather than in the fit loop means the cut is made on merit — the lowest
 /// scoring lines of that experience — instead of on whatever happened to overflow a page.
 const MAX_BULLETS_PER_EXPERIENCE: usize = 3;
+
+/// A project starts at two.
+///
+/// Three projects carrying strong lines say more than two padded out to three each, and a
+/// project's third-best line is usually its weakest — the personal repo is easy to write a
+/// third bullet about and hard to write a good one. Nothing is lost by starting lean: the
+/// fit loop's grow pass puts a third back when the page has the room for it.
+const MAX_BULLETS_PER_PROJECT: usize = 2;
+
+/// How strong a project's third bullet has to be to print without waiting for the grow
+/// pass: within this much of that project's own best line. Judged against the project
+/// rather than the resume so a weak entry cannot buy a third slot by being weak evenly.
+const PROJECT_THIRD_RATIO: f32 = 0.8;
 
 #[derive(Debug, Clone)]
 pub struct PlanBullet {
@@ -26,9 +39,32 @@ pub struct PlanBullet {
 
 #[derive(Debug, Clone)]
 pub struct PlanRole {
+    pub role_id: Uuid,
     pub title: String,
     pub dates: String,
     pub bullets: Vec<PlanBullet>,
+}
+
+/// A bullet set aside by the cap or the fit loop, with everything needed to put it back
+/// where it came from.
+#[derive(Debug, Clone)]
+pub(super) struct Benched {
+    experience_id: Uuid,
+    role_id: Uuid,
+    role_title: String,
+    dates: String,
+    /// Its index within the role, so restoring keeps the vault's ordering.
+    at: usize,
+    bullet: PlanBullet,
+}
+
+/// An experience the fit loop retired whole, with the list and position it came from.
+#[derive(Debug, Clone)]
+pub(super) struct Retired {
+    /// Index into `all_sections_mut`.
+    tier: usize,
+    at: usize,
+    section: PlanSection,
 }
 
 #[derive(Debug, Clone)]
@@ -63,6 +99,56 @@ pub struct ResumePlan {
     pub activities: Vec<PlanSection>,
     pub certifications: Vec<String>,
     pub skills_line: Vec<String>,
+    /// What the cap and the fit loop took, so the grow pass can offer it back. Never
+    /// rendered and never counted — `to_render_input`, `used_bullets` and `bullet_count`
+    /// all walk the named sections.
+    pub(super) bench: Vec<Benched>,
+    pub(super) retired: Vec<Retired>,
+}
+
+/// Where a vault bullet belongs on the page.
+struct Found {
+    experience_id: Uuid,
+    role_id: Uuid,
+    role_title: String,
+    dates: String,
+    at: usize,
+    bullet: PlanBullet,
+}
+
+/// Locates an active vault bullet and dresses it for the plan.
+///
+/// `at` counts only the active bullets of its role, which is what the plan prints, so a
+/// restored line lands in the order the vault has it rather than at the end.
+fn find_in_vault(vault: &[ExperienceDetail], bullet_id: Uuid) -> Option<Found> {
+    for detail in vault {
+        for role in &detail.roles {
+            let active = || role.bullets.iter().filter(|b| b.bullet.is_active);
+            let Some(at) = active().position(|b| b.bullet.id == bullet_id) else {
+                continue;
+            };
+            let found = active().nth(at).expect("just found by position");
+            return Some(Found {
+                experience_id: detail.experience.id,
+                role_id: role.role.id,
+                role_title: role.role.title.clone(),
+                dates: format_dates(
+                    role.role.start_date,
+                    role.role.end_date,
+                    role.role.date_override.as_deref(),
+                ),
+                at,
+                bullet: PlanBullet {
+                    bullet_id,
+                    source_text: found.bullet.text.clone(),
+                    text: found.bullet.text.clone(),
+                    was_reworded: false,
+                    score: 0.0,
+                },
+            });
+        }
+    }
+    None
 }
 
 fn to_block(s: &PlanSection) -> ExperienceBlock {
@@ -150,19 +236,20 @@ impl ResumePlan {
         self.sections().map(PlanSection::bullet_count).sum()
     }
 
-    /// Keeps at most `MAX_BULLETS_PER_EXPERIENCE` bullets under each experience, dropping
-    /// the lowest scoring first, and clears out whatever that empties.
+    /// Keeps at most `MAX_BULLETS_PER_EXPERIENCE` bullets under each experience — two under
+    /// a project — dropping the lowest scoring first, and clears out whatever that empties.
     ///
     /// Position order is preserved: the cut decides *which* bullets print, never the order
     /// they print in — that stays the user's, from the vault. On the base resume nothing is
-    /// scored, so every bullet ties and the stable sort leaves the first three in vault
-    /// order.
+    /// scored, so every bullet ties and the stable sort leaves the first ones in vault
+    /// order. What is cut goes on the bench rather than the floor, so the fit loop can put
+    /// it back if the finished page has room.
     pub fn cap_bullets(&mut self) {
-        for sections in self.all_sections_mut() {
+        let mut benched: Vec<Benched> = Vec::new();
+        // Projects are the third bucket; see `all_sections_mut`.
+        for (tier, sections) in self.all_sections_mut().into_iter().enumerate() {
+            let is_project = tier == 2;
             for section in sections.iter_mut() {
-                if section.bullet_count() <= MAX_BULLETS_PER_EXPERIENCE {
-                    continue;
-                }
                 let mut ranked: Vec<(usize, usize, f32)> = section
                     .roles
                     .iter()
@@ -175,23 +262,179 @@ impl ResumePlan {
                     })
                     .collect();
                 ranked.sort_by(|a, b| b.2.total_cmp(&a.2));
+
+                let limit = if is_project {
+                    // The third prints straight away only when it stands with the best of
+                    // its own project; otherwise it waits for the grow pass.
+                    let strong_third = ranked.len() > MAX_BULLETS_PER_PROJECT
+                        && ranked[MAX_BULLETS_PER_PROJECT].2 > 0.0
+                        && ranked[MAX_BULLETS_PER_PROJECT].2 >= PROJECT_THIRD_RATIO * ranked[0].2;
+                    if strong_third {
+                        MAX_BULLETS_PER_EXPERIENCE
+                    } else {
+                        MAX_BULLETS_PER_PROJECT
+                    }
+                } else {
+                    MAX_BULLETS_PER_EXPERIENCE
+                };
+                if ranked.len() <= limit {
+                    continue;
+                }
+
                 let keep: HashSet<(usize, usize)> = ranked
                     .into_iter()
-                    .take(MAX_BULLETS_PER_EXPERIENCE)
+                    .take(limit)
                     .map(|(ri, bi, _)| (ri, bi))
                     .collect();
 
+                let experience_id = section.experience_id;
                 for (ri, role) in section.roles.iter_mut().enumerate() {
+                    let (role_id, title, dates) =
+                        (role.role_id, role.title.clone(), role.dates.clone());
                     let mut bi = 0;
-                    role.bullets.retain(|_| {
+                    role.bullets.retain(|b| {
                         let keeping = keep.contains(&(ri, bi));
+                        if !keeping {
+                            benched.push(Benched {
+                                experience_id,
+                                role_id,
+                                role_title: title.clone(),
+                                dates: dates.clone(),
+                                at: bi,
+                                bullet: b.clone(),
+                            });
+                        }
                         bi += 1;
                         keeping
                     });
                 }
             }
         }
+        self.bench.append(&mut benched);
         self.prune_empty();
+    }
+
+    /// Puts a bullet under its experience, recreating the role if the cap emptied it.
+    ///
+    /// Returns false when the experience is not on the resume at all — a retired entry has
+    /// to come back whole, through `restore_section`, before its lines mean anything.
+    /// Roles are matched by id, not by title: the education heading carries a GPA the vault
+    /// row does not.
+    fn insert_bullet(
+        &mut self,
+        experience_id: Uuid,
+        role_id: Uuid,
+        role_title: &str,
+        dates: &str,
+        at: usize,
+        bullet: PlanBullet,
+    ) -> bool {
+        let Some(section) = self
+            .all_sections_mut()
+            .into_iter()
+            .flatten()
+            .find(|s| s.experience_id == experience_id)
+        else {
+            return false;
+        };
+        let role = match section.roles.iter_mut().position(|r| r.role_id == role_id) {
+            Some(i) => &mut section.roles[i],
+            None => {
+                section.roles.push(PlanRole {
+                    role_id,
+                    title: role_title.to_string(),
+                    dates: dates.to_string(),
+                    bullets: Vec::new(),
+                });
+                section.roles.last_mut().expect("just pushed")
+            }
+        };
+        if role.bullets.iter().any(|b| b.bullet_id == bullet.bullet_id) {
+            return false;
+        }
+        let at = at.min(role.bullets.len());
+        role.bullets.insert(at, bullet);
+        true
+    }
+
+    /// True when this bullet is already printed.
+    fn holds(&self, bullet_id: Uuid) -> bool {
+        self.sections()
+            .flat_map(|s| s.roles.iter())
+            .flat_map(|r| r.bullets.iter())
+            .any(|b| b.bullet_id == bullet_id)
+    }
+
+    /// How many bullets one experience is printing. Zero for one that is not on the page.
+    fn printed_under(&self, experience_id: Uuid) -> usize {
+        self.sections()
+            .find(|s| s.experience_id == experience_id)
+            .map_or(0, PlanSection::bullet_count)
+    }
+
+    /// Puts back the strongest benched bullet whose experience is still on the resume and
+    /// still under the cap.
+    ///
+    /// The cap is the ceiling here too, not just at `cap_bullets`: a project may grow from
+    /// two lines to three because it started lean, but nothing reaches four. Room at the
+    /// bottom of the page is spent on another experience, never on a fourth line about one
+    /// that already said its piece.
+    ///
+    /// Returns false when there is nothing left to restore.
+    pub fn restore_bullet(&mut self) -> bool {
+        loop {
+            let Some(i) = self
+                .bench
+                .iter()
+                .enumerate()
+                .filter(|(_, b)| {
+                    !self.holds(b.bullet.bullet_id)
+                        && self.printed_under(b.experience_id) < MAX_BULLETS_PER_EXPERIENCE
+                })
+                .max_by(|a, b| a.1.bullet.score.total_cmp(&b.1.bullet.score))
+                .map(|(i, _)| i)
+            else {
+                return false;
+            };
+            let b = self.bench.remove(i);
+            if self.insert_bullet(
+                b.experience_id,
+                b.role_id,
+                &b.role_title,
+                &b.dates,
+                b.at,
+                b.bullet,
+            ) {
+                return true;
+            }
+            // Its experience is retired; drop it and look at the next one.
+        }
+    }
+
+    /// Un-retires the strongest experience the fit loop gave up, back where it was.
+    ///
+    /// Tried before `restore_bullet`: another entry says more than a third line on one that
+    /// is already there.
+    pub fn restore_section(&mut self) -> bool {
+        let Some(i) = self
+            .retired
+            .iter()
+            .enumerate()
+            .max_by(|a, b| a.1.section.score.total_cmp(&b.1.section.score))
+            .map(|(i, _)| i)
+        else {
+            return false;
+        };
+        let r = self.retired.remove(i);
+        let buckets = self.all_sections_mut();
+        let at = r.at.min(buckets[r.tier].len());
+        buckets[r.tier].insert(at, r.section);
+        true
+    }
+
+    /// The experiences still retired, by org name, for the UI to name.
+    pub fn retired_names(&self) -> Vec<String> {
+        self.retired.iter().map(|r| r.section.org.clone()).collect()
     }
 
     /// Drops roles left with nothing under them, then sections left with no roles.
@@ -219,14 +462,17 @@ impl ResumePlan {
     }
 
     /// Applies the user's own edits in place: reworded lines take the new text, lines with
-    /// `keep: false` leave this resume.
+    /// `keep: false` leave this resume, and a kept line the plan does not carry is fetched
+    /// from the vault and printed.
     ///
     /// `source_text` is never touched — it is what the vault holds, and the gap between it
     /// and `text` is the record of what the user changed. `was_reworded` goes false because
     /// the model did not author this line: grounding has nothing to check, and the library
-    /// must not credit the model with a line the user wrote. An edit naming a bullet the
-    /// plan does not carry is ignored rather than an error; the draft it described is gone.
-    pub fn apply_edits(&mut self, edits: &[BulletEdit]) {
+    /// must not credit the model with a line the user wrote. Added lines are the stored text
+    /// verbatim for the same reason. An edit naming a bullet that is in neither the plan nor
+    /// the vault is ignored rather than an error; the draft it described is gone. So is one
+    /// naming an experience this resume left off — that has to come back whole.
+    pub fn apply_edits(&mut self, vault: &[ExperienceDetail], edits: &[BulletEdit]) {
         for section in self.all_sections_mut().into_iter().flatten() {
             for role in section.roles.iter_mut() {
                 role.bullets.retain(|b| {
@@ -248,6 +494,27 @@ impl ResumePlan {
                 }
             }
         }
+
+        for edit in edits.iter().filter(|e| e.keep) {
+            if self.holds(edit.bullet_id) {
+                continue;
+            }
+            let Some(found) = find_in_vault(vault, edit.bullet_id) else {
+                continue;
+            };
+            self.insert_bullet(
+                found.experience_id,
+                found.role_id,
+                &found.role_title,
+                &found.dates,
+                found.at,
+                found.bullet,
+            );
+            // It is printed now, so it must not also sit on the bench waiting to be
+            // restored a second time.
+            self.bench.retain(|b| b.bullet.bullet_id != edit.bullet_id);
+        }
+
         self.prune_empty();
     }
 
@@ -270,19 +537,26 @@ impl ResumePlan {
             return None;
         }
 
-        for tier in [
-            &mut self.activities,
-            &mut self.projects,
-            &mut self.experience,
-        ] {
-            let weakest = tier
+        // `tier` is the index into `all_sections_mut`, so a restore puts it back in the
+        // list it came from: activities 3, projects 2, experience 1.
+        for tier in [3usize, 2, 1] {
+            let mut buckets = self.all_sections_mut();
+            let list = &mut buckets[tier];
+            let weakest = list
                 .iter()
                 .enumerate()
                 .filter(|(_, s)| !s.pinned)
                 .min_by(|a, b| a.1.score.total_cmp(&b.1.score))
                 .map(|(i, _)| i);
             if let Some(i) = weakest {
-                return Some(tier.remove(i).org);
+                let section = list.remove(i);
+                let org = section.org.clone();
+                self.retired.push(Retired {
+                    tier,
+                    at: i,
+                    section,
+                });
+                return Some(org);
             }
         }
         None
@@ -317,7 +591,18 @@ impl ResumePlan {
             .min_by(|a, b| a.2.total_cmp(&b.2))
             .map(|(ri, bi, _)| (ri, bi))?;
 
-        let dropped = section.roles[role_i].bullets.remove(bullet_i);
+        let experience_id = section.experience_id;
+        let role = &mut section.roles[role_i];
+        let dropped = role.bullets.remove(bullet_i);
+        let benched = Benched {
+            experience_id,
+            role_id: role.role_id,
+            role_title: role.title.clone(),
+            dates: role.dates.clone(),
+            at: bullet_i,
+            bullet: dropped.clone(),
+        };
+        self.bench.push(benched);
         self.prune_empty();
         Some(dropped)
     }
@@ -347,6 +632,7 @@ mod tests {
             score: 0.0,
             pinned: false,
             roles: vec![PlanRole {
+                role_id: Uuid::new_v4(),
                 title: "Intern".into(),
                 dates: "2026".into(),
                 bullets: scores.iter().map(|s| bullet(*s)).collect(),
@@ -479,11 +765,13 @@ mod tests {
                 pinned: false,
                 roles: vec![
                     PlanRole {
+                        role_id: Uuid::new_v4(),
                         title: "Computer Engineering Intern".into(),
                         dates: "2025".into(),
                         bullets: vec![bullet(0.1), bullet(0.2)],
                     },
                     PlanRole {
+                        role_id: Uuid::new_v4(),
                         title: "Software Engineering Intern".into(),
                         dates: "2026".into(),
                         bullets: vec![bullet(0.9), bullet(0.8), bullet(0.7)],
@@ -528,23 +816,26 @@ mod tests {
         let dropped = plan.experience[0].roles[0].bullets[1].bullet_id;
         plan.experience[0].roles[0].bullets[0].was_reworded = true;
 
-        plan.apply_edits(&[
-            BulletEdit {
-                bullet_id: kept,
-                text: "  Shipped the thing, 25% faster.  ".into(),
-                keep: true,
-            },
-            BulletEdit {
-                bullet_id: dropped,
-                text: "does not matter".into(),
-                keep: false,
-            },
-            BulletEdit {
-                bullet_id: Uuid::new_v4(),
-                text: "belongs to another draft".into(),
-                keep: false,
-            },
-        ]);
+        plan.apply_edits(
+            &[],
+            &[
+                BulletEdit {
+                    bullet_id: kept,
+                    text: "  Shipped the thing, 25% faster.  ".into(),
+                    keep: true,
+                },
+                BulletEdit {
+                    bullet_id: dropped,
+                    text: "does not matter".into(),
+                    keep: false,
+                },
+                BulletEdit {
+                    bullet_id: Uuid::new_v4(),
+                    text: "belongs to another draft".into(),
+                    keep: false,
+                },
+            ],
+        );
 
         let used = plan.used_bullets();
         assert_eq!(used.len(), 1, "keep: false drops the line");
@@ -554,6 +845,241 @@ mod tests {
             !used[0].was_reworded,
             "the user wrote this line, not the model"
         );
+    }
+
+    /// Vault fixture whose ids line up with a plan section, so `apply_edits` can find a
+    /// bullet the plan does not carry.
+    fn vault_for(section: &PlanSection, unused: &[(&str, bool)]) -> Vec<ExperienceDetail> {
+        use crate::domain::*;
+        let role = &section.roles[0];
+        let printed = role.bullets.iter().map(|b| (b.bullet_id, b.text.clone()));
+        let extra = unused
+            .iter()
+            .map(|(t, active)| (Uuid::new_v4(), t.to_string(), *active));
+        vec![ExperienceDetail {
+            experience: Experience {
+                id: section.experience_id,
+                kind: ExperienceKind::Work,
+                org_name: section.org.clone(),
+                location: None,
+                url: None,
+                tech_line: None,
+                display_order: 0,
+                is_active: true,
+                is_pinned: false,
+            },
+            skills: vec![],
+            roles: vec![RoleDetail {
+                role: Role {
+                    id: role.role_id,
+                    experience_id: section.experience_id,
+                    title: role.title.clone(),
+                    location: None,
+                    start_date: chrono::NaiveDate::from_ymd_opt(2026, 1, 1).unwrap(),
+                    end_date: None,
+                    date_override: Some(role.dates.clone()),
+                    gpa: None,
+                    display_order: 0,
+                    is_active: true,
+                },
+                bullets: printed
+                    .map(|(id, text)| (id, text, true))
+                    .chain(extra)
+                    .map(|(id, text, is_active)| BulletDetail {
+                        bullet: Bullet {
+                            id,
+                            role_id: role.role_id,
+                            text,
+                            display_order: 0,
+                            is_active,
+                        },
+                        skills: vec![],
+                        variants: vec![],
+                    })
+                    .collect(),
+            }],
+        }]
+    }
+
+    #[test]
+    fn a_kept_edit_for_a_bullet_the_plan_dropped_puts_it_back_verbatim() {
+        let s = section("Rajant Health", &[0.9]);
+        let vault = vault_for(
+            &s,
+            &[("Rewrote the ingest path, cutting latency 30%.", true)],
+        );
+        let added = vault[0].roles[0].bullets[1].bullet.id;
+        let mut plan = ResumePlan {
+            experience: vec![s],
+            ..Default::default()
+        };
+
+        plan.apply_edits(
+            &vault,
+            &[BulletEdit {
+                bullet_id: added,
+                // The UI sends the vault text; the plan must print the stored wording.
+                text: "Rewrote the ingest path, cutting latency 30%.".into(),
+                keep: true,
+            }],
+        );
+
+        let used = plan.used_bullets();
+        assert_eq!(used.len(), 2);
+        let line = used.iter().find(|b| b.bullet_id == added).unwrap();
+        assert_eq!(
+            line.rendered_text,
+            "Rewrote the ingest path, cutting latency 30%."
+        );
+        assert_eq!(line.source_text, line.rendered_text, "added verbatim");
+        assert!(
+            !line.was_reworded,
+            "the vault wrote this line, not the model"
+        );
+    }
+
+    #[test]
+    fn an_added_bullet_lands_in_vault_order_not_at_the_end() {
+        // The plan holds the second vault bullet; adding the first must put it first.
+        let mut s = section("Rajant Health", &[0.9]);
+        let vault = vault_for(&s, &[("Second line.", true)]);
+        let first = vault[0].roles[0].bullets[0].bullet.id;
+        s.roles[0].bullets[0].bullet_id = vault[0].roles[0].bullets[1].bullet.id;
+        let mut plan = ResumePlan {
+            experience: vec![s],
+            ..Default::default()
+        };
+
+        plan.apply_edits(
+            &vault,
+            &[BulletEdit {
+                bullet_id: first,
+                text: String::new(),
+                keep: true,
+            }],
+        );
+        assert_eq!(plan.used_bullets()[0].bullet_id, first);
+    }
+
+    #[test]
+    fn an_edit_naming_something_outside_the_vault_is_ignored() {
+        let s = section("Rajant Health", &[0.9]);
+        let vault = vault_for(&s, &[("Inactive line.", false)]);
+        let inactive = vault[0].roles[0].bullets[1].bullet.id;
+        let mut plan = ResumePlan {
+            experience: vec![s],
+            ..Default::default()
+        };
+
+        plan.apply_edits(
+            &vault,
+            &[
+                BulletEdit {
+                    bullet_id: inactive,
+                    text: "Inactive line.".into(),
+                    keep: true,
+                },
+                BulletEdit {
+                    bullet_id: Uuid::new_v4(),
+                    text: "belongs to another vault".into(),
+                    keep: true,
+                },
+            ],
+        );
+        assert_eq!(plan.bullet_count(), 1, "a hidden bullet stays hidden");
+    }
+
+    #[test]
+    fn a_project_prints_two_bullets_unless_the_third_stands_with_the_best() {
+        let mut lean = ResumePlan {
+            projects: vec![section("Car Simulation", &[0.9, 0.8, 0.2])],
+            ..Default::default()
+        };
+        lean.cap_bullets();
+        assert_eq!(lean.bullet_count(), 2, "0.2 is nowhere near 0.9");
+
+        let mut strong = ResumePlan {
+            projects: vec![section("Car Simulation", &[0.9, 0.85, 0.8])],
+            ..Default::default()
+        };
+        strong.cap_bullets();
+        assert_eq!(strong.bullet_count(), 3, "0.8 is 0.89 of 0.9");
+
+        // A job still keeps three, and the base resume's unscored projects start lean.
+        let mut work = ResumePlan {
+            experience: vec![section("Rajant Health", &[0.9, 0.8, 0.2, 0.1])],
+            projects: vec![section("Car Simulation", &[0.0, 0.0, 0.0])],
+            ..Default::default()
+        };
+        work.cap_bullets();
+        assert_eq!(work.experience[0].roles[0].bullets.len(), 3);
+        assert_eq!(work.projects[0].roles[0].bullets.len(), 2);
+    }
+
+    #[test]
+    fn what_the_cap_and_the_fit_loop_take_comes_back_in_place() {
+        let mut plan = ResumePlan {
+            projects: vec![section("Car Simulation", &[0.9, 0.1, 0.8, 0.7])],
+            ..Default::default()
+        };
+        plan.cap_bullets();
+        assert_eq!(plan.bullet_count(), 2, "a project starts lean");
+
+        assert!(plan.restore_bullet());
+        let texts: Vec<String> = plan
+            .used_bullets()
+            .into_iter()
+            .map(|b| b.rendered_text)
+            .collect();
+        assert_eq!(texts, ["bullet 0.9", "bullet 0.8", "bullet 0.7"]);
+        assert!(
+            !plan.restore_bullet(),
+            "three is the ceiling — 0.1 stays benched"
+        );
+
+        // What the fit loop takes comes back the same way.
+        assert!(plan.drop_lowest().is_some());
+        assert_eq!(plan.bullet_count(), 2);
+        assert!(plan.restore_bullet());
+        assert_eq!(plan.bullet_count(), 3);
+    }
+
+    /// The grow pass spends room on breadth, not on a fourth line under one experience —
+    /// which is the whole point of the cap, and it has to hold after the page is fitted.
+    #[test]
+    fn the_grow_pass_never_pushes_an_experience_past_the_cap() {
+        let mut plan = ResumePlan {
+            experience: vec![section("Rajant Health", &[0.9, 0.1, 0.8, 0.7, 0.6])],
+            ..Default::default()
+        };
+        plan.cap_bullets();
+        assert_eq!(plan.bullet_count(), 3);
+        assert!(!plan.restore_bullet(), "already at the cap");
+        assert_eq!(plan.bullet_count(), 3);
+    }
+
+    #[test]
+    fn a_retired_experience_comes_back_where_it_was_and_stops_being_named() {
+        let mut plan = ResumePlan {
+            experience: vec![
+                scored("Strong Co", 2.4, false),
+                scored("Weak Co", 0.2, false),
+            ],
+            projects: vec![scored("Car Simulation", 1.0, false)],
+            ..Default::default()
+        };
+
+        assert_eq!(plan.retire_weakest(), Some("Car Simulation".into()));
+        assert_eq!(plan.retire_weakest(), Some("Weak Co".into()));
+        assert_eq!(plan.retired_names(), ["Car Simulation", "Weak Co"]);
+
+        // Breadth comes back strongest-first, and into the list it left.
+        assert!(plan.restore_section());
+        assert_eq!(plan.projects[0].org, "Car Simulation");
+        assert!(plan.restore_section());
+        assert_eq!(plan.experience[1].org, "Weak Co", "back in its old slot");
+        assert!(plan.retired_names().is_empty());
+        assert!(!plan.restore_section());
     }
 
     #[test]

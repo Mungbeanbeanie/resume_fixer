@@ -154,22 +154,11 @@ pub async fn delete(pool: &PgPool, id: Uuid) -> Result<()> {
 }
 
 pub async fn stats(pool: &PgPool) -> Result<StatusStats> {
-    let rows = sqlx::query_as::<_, (ApplicationStatus, i64)>(
+    Ok(sqlx::query_as::<_, (ApplicationStatus, i64)>(
         "SELECT status, count(*) FROM applications GROUP BY status",
     )
     .fetch_all(pool)
-    .await?;
-
-    let mut s = StatusStats::default();
-    for (status, n) in rows {
-        match status {
-            ApplicationStatus::Saved => s.saved = n,
-            ApplicationStatus::Applied => s.applied = n,
-            ApplicationStatus::Interview => s.interview = n,
-            ApplicationStatus::Offer => s.offer = n,
-            ApplicationStatus::Rejected => s.rejected = n,
-            ApplicationStatus::Withdrawn => s.withdrawn = n,
-        }
-    }
-    Ok(s)
+    .await?
+    .into_iter()
+    .collect())
 }

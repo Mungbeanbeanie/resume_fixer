@@ -68,11 +68,21 @@ export default function App() {
         <HealthStrip report={report} />
       </nav>
       <main className="page">
+        {/* Every tab stays mounted. Unmounting threw away the draft in front of the user
+            every time they looked something up in the Vault. */}
         <div className="page-inner">
-          {tab === "Generate" && <GenerateTab health={report} />}
-          {tab === "Library" && <LibraryTab />}
-          {tab === "Vault" && <VaultTab />}
-          {tab === "Base" && <BaseTab />}
+          <div hidden={tab !== "Generate"}>
+            <GenerateTab health={report} active={tab === "Generate"} />
+          </div>
+          <div hidden={tab !== "Library"}>
+            <LibraryTab active={tab === "Library"} />
+          </div>
+          <div hidden={tab !== "Vault"}>
+            <VaultTab />
+          </div>
+          <div hidden={tab !== "Base"}>
+            <BaseTab />
+          </div>
         </div>
       </main>
     </div>

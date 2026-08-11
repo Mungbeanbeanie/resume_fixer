@@ -61,6 +61,7 @@ async fn seed_tree(pool: &PgPool, org: &str) -> (Uuid, Uuid, Uuid) {
             start_date: NaiveDate::from_ymd_opt(2026, 6, 1).unwrap(),
             end_date: None,
             date_override: None,
+            gpa: None,
             display_order: 0,
             is_active: true,
         },
@@ -222,6 +223,24 @@ async fn a_status_change_is_stamped_once_and_recorded_every_time() {
         .applied_at
         .expect("applied stamps a date");
 
+    // The assessment and round statuses go through the same encode and decode as the old
+    // ones; a name the database does not know fails here and nowhere else.
+    for status in [
+        ApplicationStatus::OaReceived,
+        ApplicationStatus::OaCompleted,
+        ApplicationStatus::Interview1,
+        ApplicationStatus::Interview2,
+        ApplicationStatus::Interview3,
+    ] {
+        db::application::set_status(&pool, application.id, status)
+            .await
+            .unwrap();
+        let read = db::application::get_detail(&pool, application.id)
+            .await
+            .unwrap();
+        assert_eq!(read.application.status, status);
+    }
+
     db::application::set_status(&pool, application.id, ApplicationStatus::Rejected)
         .await
         .unwrap();
@@ -235,7 +254,11 @@ async fn a_status_change_is_stamped_once_and_recorded_every_time() {
         Some(applied_at),
         "a later status must not move the sent date"
     );
-    assert_eq!(after_reject.history.len(), 3, "saved, applied, rejected");
+    assert_eq!(
+        after_reject.history.len(),
+        8,
+        "saved, applied, five rounds, rejected"
+    );
 
     db::application::delete(&pool, application.id)
         .await

@@ -38,11 +38,11 @@ export default function BaseTab() {
 
   const current = templates.find((t) => t.id === selected) ?? null;
 
-  async function build() {
+  async function build(templateId?: string) {
     setBusy(true);
     setNote(null);
     try {
-      const result = await base.render(selected || null);
+      const result = await base.render(templateId ?? (selected || null));
       setPreview(result);
       setRevision((r) => r + 1);
       setError(null);
@@ -51,6 +51,19 @@ export default function BaseTab() {
     } finally {
       setBusy(false);
     }
+  }
+
+  // Reopening rebuilds the preview through the template the saved resume was built with,
+  // so it can be trimmed and saved again. The saved PDF itself is untouched — the lines
+  // come from today's vault, not from the stored .tex.
+  async function reopen(row: BaseResume) {
+    const template = templates.find((t) => t.name === row.template_name);
+    if (!template) {
+      setError(`The template “${row.template_name}” is no longer here, so this cannot be reopened.`);
+      return;
+    }
+    setSelected(template.id);
+    await build(template.id);
   }
 
   async function useForGenerated() {
@@ -119,7 +132,7 @@ export default function BaseTab() {
           </select>
         </div>
         <span style={{ flex: 1 }} />
-        <button className="primary" onClick={build} disabled={busy || !selected}>
+        <button className="primary" onClick={() => build()} disabled={busy || !selected}>
           {busy ? "Compiling…" : "Build base resume"}
         </button>
         <button onClick={useForGenerated} disabled={!current || current.is_active}>
@@ -195,10 +208,15 @@ export default function BaseTab() {
                 <span style={{ flex: 1 }} />
                 <button
                   className="quiet"
-                  onClick={() => row.pdf_path && openPath(row.pdf_path)}
+                  onClick={() =>
+                    openPath(row.pdf_path!).catch((e) => setError(errorMessage(e)))
+                  }
                   disabled={!row.pdf_path}
                 >
                   Open
+                </button>
+                <button className="quiet" onClick={() => reopen(row)} disabled={busy}>
+                  Reopen
                 </button>
                 <button className="quiet" onClick={() => download(row)}>
                   Download

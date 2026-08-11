@@ -121,6 +121,7 @@ mod tests {
                         Utc::now().date_naive() - chrono::Duration::days(365 * years_ago),
                     ),
                     date_override: None,
+                    gpa: None,
                     display_order: 0,
                     is_active: true,
                 },

@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useState } from "react";
 import { errorMessage, vault } from "../../ipc";
-import type { ExperienceDetail, ExperienceKind, Profile } from "../../types";
+import type { ExperienceDetail, ExperienceKind, Profile, RoleDetail } from "../../types";
 import BulletStandard from "./BulletStandard";
 import ExperienceCard from "./ExperienceCard";
 import SkillsCard from "./SkillsCard";
-import { VaultCtx } from "./vaultContext";
+import { useVault, VaultCtx } from "./vaultContext";
 
 // The order the vault reads in. Header Info is the profile card and has no kind.
 const SECTIONS: [ExperienceKind, string][] = [
@@ -102,6 +102,47 @@ function ProfileCard({ draft, setDraft, save }: ProfileProps) {
         </div>
       </div>
     </details>
+  );
+}
+
+// GPA is stored on the degree row, not on the profile, so one school can carry two of them —
+// but Header Info is where it is entered, because that is where the user looks for it. It
+// prints after the degree title on every layout.
+function GpaCard({ roles }: { roles: RoleDetail[] }) {
+  const { reload, report } = useVault();
+  if (roles.length === 0) {
+    return (
+      <div className="experience">
+        <div className="body muted">Add a School entry below to record a GPA.</div>
+      </div>
+    );
+  }
+  return (
+    <div className="experience">
+      <div className="body grid-4">
+        {roles.map((r) => (
+          <div key={r.id}>
+            <span className="field-label">
+              GPA{roles.length > 1 ? ` — ${r.title}` : ""}
+            </span>
+            <input
+              placeholder="e.g. 3.87/4.00"
+              defaultValue={r.gpa ?? ""}
+              onBlur={async (e) => {
+                const gpa = e.target.value.trim() || null;
+                if (gpa === r.gpa) return;
+                try {
+                  await vault.upsertRole({ ...r, gpa });
+                  await reload();
+                } catch (err) {
+                  report(err);
+                }
+              }}
+            />
+          </div>
+        ))}
+      </div>
+    </div>
   );
 }
 
@@ -225,6 +266,11 @@ export default function VaultTab() {
 
         <h3 className="vault-section">Header Info</h3>
         {profile && <ProfileCard draft={profile} setDraft={setProfile} save={saveProfile} />}
+        <GpaCard
+          roles={experiences
+            .filter((e) => e.kind === "education")
+            .flatMap((e) => e.roles)}
+        />
 
         <h3 className="vault-section">Interests</h3>
         {profile && <InterestsCard draft={profile} setDraft={setProfile} save={saveProfile} />}

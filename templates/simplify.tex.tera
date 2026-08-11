@@ -164,17 +164,13 @@
 {% endif %}
 {% if skills_line or certifications or interests %}
 %-----------SKILLS-----------
+% Three lines of supporting detail, set tight: this block closes the page and every point
+% of leading it takes is a line of evidence that did not fit above it.
 \section{Skills}
-\begin{itemize}[leftmargin=0.15in, label={}]
-{% if skills_line %}    \small{\item{
-     \textbf{Skills:}{ {{ skills_line }}}
-     }}
-{% endif %}{% if certifications %}    \small{\item{
-     \textbf{Certifications:}{ {% for c in certifications %}{{ c }}{% if not loop.last %} $|$ {% endif %}{% endfor %}}
-     }}
-{% endif %}{% if interests %}    \small{\item{
-     \textbf{Interests:}{ {{ interests }}}
-     }}
+\begin{itemize}[leftmargin=0.15in, label={}, itemsep=0pt, parsep=0pt, topsep=-6pt]
+{% if skills_line %}    \small{\item{\textbf{Skills:}{ {{ skills_line }}}}}
+{% endif %}{% if certifications %}    \small{\item{\textbf{Certifications:}{ {% for c in certifications %}{{ c }}{% if not loop.last %} $|$ {% endif %}{% endfor %}}}}
+{% endif %}{% if interests %}    \small{\item{\textbf{Interests:}{ {{ interests }}}}}
 {% endif %}\end{itemize}
 {% endif %}
 %-------------------------------------------

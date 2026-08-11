@@ -24,8 +24,15 @@ pub async fn fetch(url: &str, timeout_secs: u64) -> Result<String> {
         .build()
         .map_err(|e| AppError::Fetch(e.to_string()))?;
 
+    // Some boards serve a stripped page, or none at all, to a request that asks for
+    // nothing in particular.
     let res = client
         .get(url)
+        .header(
+            "Accept",
+            "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        )
+        .header("Accept-Language", "en-US,en;q=0.9")
         .send()
         .await
         .map_err(|e| AppError::Fetch(e.to_string()))?;

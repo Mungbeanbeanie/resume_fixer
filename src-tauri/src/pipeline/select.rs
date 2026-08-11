@@ -261,7 +261,20 @@ fn assemble(
                 continue;
             }
             roles.push(PlanRole {
-                title: role.role.title.clone(),
+                role_id: role.role.id,
+                // GPA rides on the degree line rather than getting its own template
+                // variable: every layout already prints a role title, so this reaches both
+                // built-ins and any template the user writes without either knowing about it.
+                title: match role
+                    .role
+                    .gpa
+                    .as_deref()
+                    .map(str::trim)
+                    .filter(|g| !g.is_empty())
+                {
+                    Some(gpa) => format!("{}, GPA: {}", role.role.title, gpa),
+                    None => role.role.title.clone(),
+                },
                 dates: format_dates(
                     role.role.start_date,
                     role.role.end_date,
