@@ -28,7 +28,10 @@ These are not preferences. Violating one is a bug regardless of test status.
    Never in a template, never at a call site.
 5. **The model outputs plain text.** Any of `\ { } $ ^ _ ~ #` in model output is a rejection
    signal, not something to sanitize and pass through.
-6. **Prefer removing a dependency to adding one.** This app is intentionally small. If a
+6. **No personal data in `migrations/`.** `sqlx::migrate!` compiles the directory into the
+   binary, so anything there ships in the `.dmg` and seeds itself into a stranger's database.
+   Schema goes in `migrations/`, the maintainer's own vault goes in `seed/`, applied by hand.
+7. **Prefer removing a dependency to adding one.** This app is intentionally small. If a
    library is being added, the plan should say why the standard-library or hand-rolled
    version is insufficient.
 
@@ -54,12 +57,21 @@ npm run tauri dev
 
 # Database (Postgres must be running locally)
 createdb resume_fixer
-cargo sqlx migrate run --source migrations
+# `db::pool::migrate` runs migrations/ at startup — there is no separate migrate step.
+# The vault opens empty; seed it if you want real data to work against:
+psql resume_fixer -f seed/0002_seed.sql   # then 0007, 0008, 0010 in order
 
 # Rust
 cd src-tauri
-cargo test                       # unit + integration; needs a scratch DB
+cargo test                       # unit; needs no database, model, or LaTeX
 cargo test grounding             # the suite that matters most
+
+# The suites that need the real stack
+createdb resume_fixer_test
+export TEST_DATABASE_URL=postgresql://localhost/resume_fixer_test
+cargo test --test db             # skips itself, rather than failing, without that variable
+cargo test --test render_reference -- --ignored     # needs Tectonic
+cargo test --test generate_end_to_end -- --ignored  # needs all three
 cargo clippy -- -D warnings
 cargo fmt
 
@@ -76,7 +88,8 @@ Model calls are mocked in tests behind the `LlmClient` trait. No test requires O
 ## Layout
 
 ```
-migrations/            sqlx migrations, NNNN_name.sql
+migrations/            sqlx migrations, NNNN_name.sql — schema only, run at startup
+seed/                  the user's own vault content, same numbering, applied by hand with psql
 templates/
   resume.tex.tera      Jake's Resume, the default generation template
   simplify.tex.tera    the Simplify layout — the one built-in with an Activities section
@@ -142,6 +155,11 @@ not touch `sqlx` types. Repositories do not call the model.
 - **Page count comes from the TeX log** line `Output written on ... (N pages, ...)`. Do not
   add a PDF parsing crate for this.
 - **Tectonic downloads packages on first compile.** Surface that in the UI; it is not a hang.
+- **The app creates its own database.** `db::pool::is_ready` reaches for
+  `Postgres::create_database` once `SELECT 1` has failed, so a fresh install needs a running
+  server and nothing else — no `createdb`, no schema to import. `migrate` sets
+  `ignore_missing` because versions 2, 7, 8 and 10 seeded the maintainer's vault and now
+  live in `seed/`; a database written before that move records them with no file behind them.
 - **Drafts are in-memory** until the user commits them to the library. Discarding writes
   nothing to the database. A base resume preview follows the same rule.
 - **Hand edits to a draft are draft-local.** `ResumePlan::apply_edits` changes `text` and

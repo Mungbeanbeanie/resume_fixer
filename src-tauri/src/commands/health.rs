@@ -12,7 +12,7 @@ use tauri::State;
 /// not an error.
 #[tauri::command]
 pub async fn health_check(state: State<'_, AppState>) -> Result<HealthReport> {
-    let postgres = db::pool::is_ready(&state.pool).await;
+    let postgres = db::pool::is_ready(&state.pool, &state.config.database.url).await;
     if postgres {
         // The schema is current here and nowhere earlier — the pool connects lazily, so
         // this is the first point at which the shipped templates can be written.

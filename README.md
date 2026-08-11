@@ -13,23 +13,27 @@ type. No analytics, no cloud model, no third-party extraction service.
 line comes from a bullet you already wrote; the model picks and re-emphasizes, and a
 deterministic grounding check rejects any rewrite that adds a fact.
 
-**Library** — every application, its status, and the exact resume that was sent. One
-stacked bar shows how many are awaiting a reply, interviewing, offered, or rejected.
+**Library** — every application, the exact resume that was sent, and where it got to:
+applied, online assessment, interview round, offer. One stacked bar and a response rate.
 
 **Vault** — your experiences, roles, and bullets, with skill tags that drive retrieval.
 The Improve button offers alternate phrasings, grounded against what the bullet already
 says.
+
+**Base** — your whole vault through one template, no posting and no model, every line
+verbatim. Pick a layout (Jake's Resume or Simplify), save it under a name, keep several.
 
 ## Setup
 
 Four local pieces. The status strip in the top right tells you which are missing.
 
 ```bash
-# 1. Postgres
+# 1. Postgres — the server only. The app creates its own database on first launch and
+#    migrates it, so there is no createdb step and no schema to import.
 brew install postgresql@17
 brew services start postgresql@17
-createdb resume_fixer
-# Migrations, including the seed of the existing resume, run automatically on first launch.
+# The vault starts empty. Fill it from the Vault tab: Header Info first, then an entry
+# under School or Work. Generate and Base both say so until there is a bullet to print.
 
 # 2. Ollama with the model
 brew install ollama
@@ -49,13 +53,19 @@ Configuration lives in `~/.config/resume-fixer/config.toml`, written with defaul
 run: database URL, Ollama endpoint and model, Tectonic path, download directory, ingest
 timeouts. Nothing is hardcoded past those defaults.
 
+Installing from a `.dmg` rather than from source: the build is unsigned, so Gatekeeper
+refuses it until you right-click the app and choose Open once. Signing it properly needs an
+Apple Developer certificate.
+
 ## Using it
 
-- `⌘1` / `⌘2` / `⌘3` switch tabs, `⌘↵` generates.
+- `⌘1`–`⌘4` switch tabs, `⌘↵` generates.
 - A posting that will not extract (Workday, Greenhouse embeds, anything behind a login)
   falls back to a paste box. That is a normal path, not an error.
 - Generation takes 30–90 seconds on a local 35B model: two model calls, not one per bullet.
-- Drafts live in memory until you save them to the library. Discarding writes nothing.
+- Drafts live in memory until you save them. Discarding writes nothing.
+- Edit before saving: uncheck a line to drop it, check one to bring it back, or rewrite it.
+- To fit one page the app retires whole entries before it drops lines, and tells you which.
 
 ## Development
 
@@ -80,6 +90,15 @@ cargo test --test generate_end_to_end -- --ignored          # the whole pipeline
 # Frontend
 npm run lint                     # tsc --noEmit
 npm run build
+
+# The maintainer's own vault. Not a migration and not compiled into the binary, so a
+# distributed build ships an empty database.
+for f in ../seed/*.sql; do psql -d resume_fixer -f "$f"; done
+
+# What a released build must not contain
+npm run tauri build
+strings "target/release/bundle/macos/Resume Fixer.app/Contents/MacOS/resume-fixer" \
+  | grep -i "mychung\|rajant\|mungbean"      # expect nothing
 ```
 
 `IMPLEMENTATION_PLAN.md` holds the schema, the pipeline design, and the milestone order.

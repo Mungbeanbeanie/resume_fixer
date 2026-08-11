@@ -1,11 +1,14 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "Capability for the main window",
+  "description": "Capability for the main window. `allow-open-path` carries an empty scope of its own, so every PDF the app writes has to be named here or the system viewer refuses it: drafts, saved resumes and base resumes all live under the app data directory and nothing else does.",
   "windows": ["main"],
   "permissions": [
     "core:default",
     "opener:default",
-    "opener:allow-open-path"
+    {
+      "identifier": "opener:allow-open-path",
+      "allow": [{ "path": "$APPDATA/**" }]
+    }
   ]
 }

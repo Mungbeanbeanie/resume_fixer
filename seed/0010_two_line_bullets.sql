@@ -79,3 +79,9 @@ ON CONFLICT DO NOTHING;
 
 -- The two-line ceiling is a property of the rendered width, not of character count: the
 -- boundary sits near 230 characters but moves with word length. Measure, do not count.
+
+-- Every tagged skill prints. Applied here rather than in `migrations/0009_skill_list_flag.sql`
+-- because the schema is now current before any of this seed runs, so 0009 sees no tags.
+UPDATE skills SET always_list = TRUE
+WHERE id IN (SELECT skill_id FROM bullet_skills)
+   OR id IN (SELECT skill_id FROM experience_skills);

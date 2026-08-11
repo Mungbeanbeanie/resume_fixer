@@ -10,7 +10,8 @@
 use chrono::NaiveDate;
 use resume_fixer_lib::db;
 use resume_fixer_lib::domain::*;
-use sqlx::PgPool;
+use sqlx::migrate::MigrateDatabase;
+use sqlx::{PgPool, Postgres};
 use uuid::Uuid;
 
 async fn pool() -> Option<PgPool> {
@@ -277,20 +278,24 @@ async fn skills_upsert_by_slug_not_by_display_name() {
 #[tokio::test]
 async fn listing_a_skill_by_hand_toggles_without_losing_the_row() {
     let pool = db_test!(pool);
-    let existing = db::skill::upsert_by_name(&pool, "Kubernetes")
+    // A slug nothing has seen, so the test reads the same on a fresh database as on a
+    // populated one. A fixed name passes only where an earlier run happened to leave it.
+    let name = format!("Kubernetes {}", Uuid::new_v4().simple());
+
+    let tagged = db::skill::upsert_by_name(&pool, &name).await.unwrap();
+    assert!(
+        tagged.always_list,
+        "a first-seen tag starts listed — a skill worth tagging is worth printing"
+    );
+
+    let listed = db::skill::add_listed(&pool, &name.to_lowercase())
         .await
         .unwrap();
-    assert!(!existing.always_list, "tagging alone does not list a skill");
-
-    let listed = db::skill::add_listed(&pool, "kubernetes").await.unwrap();
     assert_eq!(
-        listed.id, existing.id,
+        listed.id, tagged.id,
         "the same slug must not create two rows"
     );
-    assert_eq!(
-        listed.name, "Kubernetes",
-        "an existing row keeps its display name"
-    );
+    assert_eq!(listed.name, name, "an existing row keeps its display name");
     assert!(listed.always_list);
 
     db::skill::set_always_list(&pool, listed.id, false)
@@ -302,25 +307,65 @@ async fn listing_a_skill_by_hand_toggles_without_losing_the_row() {
         .find(|s| s.id == listed.id)
         .expect("row survives");
     assert!(!row.always_list, "unlisting keeps the row for matching");
+
+    // The guarantee in `upsert_by_name`: re-saving a bullet must not re-check the box.
+    let retagged = db::skill::upsert_by_name(&pool, &name).await.unwrap();
+    assert!(
+        !retagged.always_list,
+        "tagging again does not undo a box the user unchecked"
+    );
 }
 
 #[tokio::test]
-async fn the_seed_migration_left_a_usable_vault() {
+async fn an_active_tagged_bullet_is_retrievable_as_a_candidate() {
     let pool = db_test!(pool);
-    let profile = db::profile::get(&pool)
+    let (_, _, bullet_id) = seed_tree(&pool, &format!("Candidate {}", Uuid::new_v4())).await;
+    db::skill::set_bullet_skills(&pool, bullet_id, &["Rust".into()])
         .await
-        .unwrap()
-        .expect("seeded profile");
-    assert!(!profile.full_name.is_empty());
+        .expect("tags save");
 
     let candidates = db::bullet::candidates(&pool).await.unwrap();
+    let mine = candidates
+        .iter()
+        .find(|c| c.bullet_id == bullet_id)
+        .expect("an active bullet under an active role and experience is a candidate");
     assert!(
-        candidates.len() >= 13,
-        "seeded bullets are retrievable: {}",
-        candidates.len()
+        mine.skills.iter().any(|(slug, _)| slug == "rust"),
+        "a candidate carries its slugs, which is what retrieval matches on: {:?}",
+        mine.skills
+    );
+}
+
+/// The branch every fresh install lands on: a server that is up, with no database yet.
+///
+/// Also the check that the app ships nothing personal — a database the app created for
+/// itself has the schema and an empty vault, because `seed/` is not a migration.
+#[tokio::test]
+async fn is_ready_creates_a_database_that_does_not_exist() {
+    let Ok(url) = std::env::var("TEST_DATABASE_URL") else {
+        eprintln!("skipped: TEST_DATABASE_URL is not set");
+        return;
+    };
+    // The same server under a name nothing has created. Query parameters are not carried
+    // over; TEST_DATABASE_URL points at a local scratch server and does not use them.
+    let (base, _) = url.rsplit_once('/').expect("the URL names a database");
+    let fresh = format!("{base}/rf_autocreate_{}", Uuid::new_v4().simple());
+
+    let pool = db::pool::lazy(&fresh).expect("pool builds");
+    assert!(
+        db::pool::is_ready(&pool, &fresh).await,
+        "is_ready creates the database and brings the schema up"
     );
     assert!(
-        candidates.iter().any(|c| !c.skills.is_empty()),
-        "seeded bullets carry skill tags"
+        db::profile::get(&pool)
+            .await
+            .expect("the schema is there to query")
+            .is_none(),
+        "a database the app created for itself holds no profile"
     );
+
+    pool.close().await;
+    Postgres::drop_database(&fresh)
+        .await
+        .expect("the scratch database drops");
 }

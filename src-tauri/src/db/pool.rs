@@ -1,7 +1,9 @@
 //! Connection pool construction and migration.
 
 use crate::error::Result;
+use sqlx::migrate::MigrateDatabase;
 use sqlx::postgres::{PgConnectOptions, PgPool, PgPoolOptions};
+use sqlx::Postgres;
 use std::str::FromStr;
 
 /// Builds the pool without requiring the server to be up yet.
@@ -21,16 +23,33 @@ pub fn lazy(url: &str) -> Result<PgPool> {
 }
 
 /// Brings the schema up to date. Idempotent, so it is safe to call on every health check.
+///
+/// Applied migrations with no file behind them are accepted. Versions 2, 7, 8 and 10 seeded
+/// the maintainer's own vault and live in `seed/`, applied by hand, so a database written
+/// before that move records them and would otherwise fail with `VersionMissing`.
 pub async fn migrate(pool: &PgPool) -> Result<()> {
-    sqlx::migrate!("../migrations").run(pool).await?;
+    let mut migrator = sqlx::migrate!("../migrations");
+    migrator.set_ignore_missing(true);
+    migrator.run(pool).await?;
     Ok(())
 }
 
 /// True when the server answers and the schema is current.
-pub async fn is_ready(pool: &PgPool) -> bool {
-    sqlx::query_scalar::<_, i32>("SELECT 1")
+///
+/// Creates the database when it is absent, which is the state every fresh install starts
+/// in: the app ships an empty vault, and a user whose server is running should not have to
+/// find a terminal to run `createdb`. The attempt is made only once `SELECT 1` has failed,
+/// so an existing database costs nothing extra, and a create that cannot succeed — no
+/// server, or a role without CREATE DATABASE — is the red dot rather than an error.
+pub async fn is_ready(pool: &PgPool, url: &str) -> bool {
+    if sqlx::query_scalar::<_, i32>("SELECT 1")
         .fetch_one(pool)
         .await
-        .is_ok()
-        && migrate(pool).await.is_ok()
+        .is_err()
+        && Postgres::create_database(url).await.is_err()
+    {
+        return false;
+    }
+    // The pool connects lazily and caches no failure, so this reaches the new database.
+    migrate(pool).await.is_ok()
 }

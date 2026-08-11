@@ -262,6 +262,33 @@ CREATE TABLE resume_bullets (
 foreign key. If a line cannot be attributed, it cannot be rendered. That is the structural
 half of the anti-hallucination guarantee; section 4.5 is the textual half.
 
+### Beyond 0001
+
+The block above is `0001_init.sql`. `migrations/` is the schema of record — the summary
+here exists so a reader knows what to expect, not so it can be read instead:
+
+| Migration | Change |
+|---|---|
+| `0003_activity_kind` | `experience_kind` gains `activity` — clubs and orgs, which only the Simplify layout prints |
+| `0004_templates` | `templates` (name, Tera source, `is_builtin`, `is_active`) and `base_resumes` (a saved posting-less resume, with the template it was built from) |
+| `0005` | `skills.always_list` — a skill that prints in the skills section whether or not the posting asks for it |
+| `0006_experience_pin` | `experiences.is_pinned` — an entry the fit loop may not retire |
+| `0011_profile_interests` | `profile.interests`, one comma-separated line, Simplify only |
+| `0012_role_gpa` | `roles.gpa`, free text: it belongs to the degree, not the school |
+| `0013_assessment_and_rounds` | `application_status` rebuilt as `saved, applied, oa_received, oa_completed, interview_1..3, offer, rejected, withdrawn`; existing `interview` rows land on round one |
+
+`migrations/` carries schema only, so a fresh database opens to an empty vault. One
+person's experience history is content, not structure, and a migration that inserts it
+cannot be skipped by anyone else. That content lives in `seed/`, numbered against the
+migration it once sat between, and is applied by hand:
+
+```bash
+psql resume_fixer -f seed/0002_seed.sql   # and 0007, 0008, 0010 in order
+```
+
+`0009_skill_list_flag` stays in `migrations/` and is a no-op on an empty database — the
+seed sets `always_list` itself, since by the time it runs the schema is already current.
+
 ---
 
 ## 4. Generation pipeline
@@ -474,13 +501,31 @@ vault_set_bullet_skills(bullet_id, skill_names: Vec<String>)   // upserts skills
 vault_suggest_bullet_improvements(bullet_id) -> Vec<Suggestion> // model, grounded
 vault_accept_variant(variant_id)                                // promotes to bullets.text
 vault_list_skills() -> Vec<Skill>
+vault_add_skill(name) -> Skill
+vault_set_skill_listed(skill_id, always_list)   // pins a skill into the skills section
+vault_get_profile() -> Option<Profile>
+vault_upsert_profile(profile) -> Profile
 
 // Generate
-generate_ingest_job(url) -> IngestResult          // { text, source, needs_paste }
+generate_ingest_job(url) -> IngestResult          // { text, source, needs_paste, reason }
 generate_from_text(job_text, url?, feedback?) -> GenerationResult
+generate_revise(draft_id, edits) -> GenerationResult  // hand edits, no cap and no fit loop
 generate_discard(draft_id)
 generate_commit(draft_id, applied: bool) -> Uuid  // writes application + resume
+generate_export_draft(draft_id, filename) -> String   // uncommitted draft to output_dir
 generate_export_pdf(resume_id, dest_path)
+
+// Base — the vault through one template, no posting and no model
+base_list_templates() -> Vec<Template>
+base_save_template(name, source) -> Template   // a built-in saves as a copy, never in place
+base_set_active_template(id)                   // the one Generate renders with
+base_delete_template(id)
+base_render(template_id?) -> BasePreview
+base_revise(edits) -> BasePreview
+base_save(name) -> BaseResume
+base_list() -> Vec<BaseResume>
+base_delete(id)
+base_export(id, filename) -> String
 
 // Library
 library_list_applications(filter?) -> Vec<ApplicationSummary>
@@ -536,9 +581,11 @@ Below the preview, collapsed: which bullets were used, and the rejected-rewrite 
 Table: Company · Role · Status pill · Date · Resume link · Job link. Row click opens a
 side panel with the job text, the resume, and a status dropdown.
 
-Above the table, the graph: a single horizontal stacked bar (Applied-awaiting / Interview /
+Above the table, the graph: a single horizontal stacked bar (Awaiting / OA / Interview /
 Offer / Rejected) with counts, plus a response-rate figure. Hand-rolled SVG, ~60 lines.
-`saved` rows are excluded from the graph — they were never sent.
+`saved` and `withdrawn` rows are excluded — they were never sent, or were pulled back. The
+three interview rounds share one segment: what the bar is asked is how far applications
+got, not which round each is sitting on. Anything past `applied` counts as an answer.
 
 ### Vault
 
@@ -549,6 +596,17 @@ that returns 2–3 grounded suggestions in a diff view; accepting one replaces
 
 Skill input is a comma-separated field that upserts into `skills` by slug — no separate
 skill management screen.
+
+### Base
+
+A template picker, a preview, and the same edit-then-save flow as Generate. No URL field
+and no model: the tab renders the whole vault through one template, ranked by
+`pipeline/strength.rs` rather than by fit, and saves the result under a name.
+
+Editing a template opens its Tera source. A built-in cannot be saved in place — it is
+re-synced from `templates/*.tex.tera` on every health check, so the files stay
+authoritative and an edit saves a copy. One row is `is_active`; that is what Generate
+renders with.
 
 ---
 
@@ -589,8 +647,13 @@ feedback, commit-to-library, discard. Fit-to-one-page loop.
 **M7 — Library tab.** Table, status transitions with history rows, side panel, stacked bar.
 *Done when:* status changes persist and the graph reflects them.
 
-**M8 — Polish.** Error copy, empty states, keyboard flow (⌘1/2/3 tabs, ⌘Enter generate),
+**M8 — Polish.** Error copy, empty states, keyboard flow (⌘1–4 tabs, ⌘Enter generate),
 first-run guidance, README covering Postgres/Ollama/Tectonic setup.
+
+**M9 — Base tab and templates.** `templates` and `base_resumes` tables, the Simplify
+layout, `pipeline/strength.rs` for posting-less ranking, template editing that copies
+rather than overwrites a built-in.
+*Done when:* the vault renders to a one-page PDF with no posting and no model call.
 
 ---
 
@@ -657,8 +720,6 @@ hardcoded in Rust beyond the defaults that write it.
 
 ## 12. Deferred, with hooks left in place
 
-- Multiple templates — `render/` takes a template path; the contract in section 5 is the
-  interface.
 - Cover letters — same pipeline, different template and prompt.
 - Embedding-based retrieval — `pipeline/retrieval.rs` is a single scoring function to swap.
 - Response-time analytics — `application_status_history` already records the data.
