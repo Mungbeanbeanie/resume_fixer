@@ -18,6 +18,9 @@ interface State {
   result: GenerationResult | null;
   error: string | null;
   saved: string | null;
+  /// Edits typed in the bullet editor and not yet applied. Committing over them would put
+  /// the document on screen in the library rather than the one the user just wrote.
+  pendingEdits: boolean;
   /// Every compile writes the same resume.pdf, so the preview needs a changing URL.
   revision: number;
 }
@@ -40,6 +43,7 @@ const initial: State = {
   result: null,
   error: null,
   saved: null,
+  pendingEdits: false,
   revision: 0,
 };
 
@@ -58,6 +62,7 @@ function reducer(state: State, action: Action): State {
         result: action.result,
         error: null,
         feedbackOpen: false,
+        pendingEdits: false,
         revision: state.revision + 1,
       };
     case "reset":
@@ -190,10 +195,17 @@ export default function GenerateTab({
           <button onClick={() => dispatch({ type: "set", patch: { feedbackOpen: !state.feedbackOpen } })}>
             Regenerate
           </button>
-          <button className="primary" onClick={() => save(true)} disabled={state.phase === "saving"}>
+          <button
+            className="primary"
+            onClick={() => save(true)}
+            disabled={state.phase === "saving" || state.pendingEdits}
+          >
             Applied — save
           </button>
-          <button onClick={() => save(false)} disabled={state.phase === "saving"}>
+          <button
+            onClick={() => save(false)}
+            disabled={state.phase === "saving" || state.pendingEdits}
+          >
             Save only
           </button>
           <button className="danger" onClick={discard}>
@@ -218,6 +230,11 @@ export default function GenerateTab({
 
         {state.error && <div className="error">{state.error}</div>}
         {state.saved && <div className="muted">{state.saved}</div>}
+        {state.pendingEdits && (
+          <div className="muted">
+            You have edits below that this resume does not have yet — apply them first.
+          </div>
+        )}
 
         {r.retired.length > 0 && (
           <div className="muted">
@@ -250,6 +267,7 @@ export default function GenerateTab({
         <DraftBullets
           bullets={r.used_bullets}
           dropped={r.dropped_for_fit}
+          onPending={(pendingEdits) => dispatch({ type: "set", patch: { pendingEdits } })}
           onApply={async (edits) =>
             dispatch({ type: "ready", result: await generate.revise(r.draft_id, edits) })
           }

@@ -12,7 +12,7 @@ use crate::domain::*;
 use crate::error::Result;
 use crate::llm::{self, client::LlmClient, schemas::ParsedJob};
 use crate::render::tex::format_dates;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use uuid::Uuid;
 
 /// Without a model, this many of the top-scoring bullets make a plausible page.
@@ -28,6 +28,43 @@ struct Chosen {
     text: String,
     was_reworded: bool,
     score: f32,
+}
+
+/// Fills every experience already on the page with the rest of its bullets.
+///
+/// The model picks one line at a time and for relevance alone, so it will happily return a
+/// single bullet from each of eight experiences — a page that reads as a list of places
+/// rather than as evidence about any of them. Nothing downstream can repair that: the plan
+/// prints what was picked, `cap_bullets` only ever removes, and the fit loop's grow pass
+/// spends a bench that a thin selection never filled.
+///
+/// So an entry that earned the page earns its lines. Every other active bullet under it
+/// joins it verbatim, and the cap and the fit loop decide from there how many actually
+/// print — three per experience, two per project, weakest cut first. Reads `all` rather
+/// than the shortlist because the shortlist is the model's attention budget, not a printing
+/// budget: an entry that got one seat on it would otherwise stay one line long. Nothing new
+/// reaches the page this way — an experience the model passed over entirely stays off — and
+/// every line added is stored text, so grounding has nothing to check.
+fn deepen(chosen: &mut Vec<(Uuid, Chosen)>, all: &[Candidate]) {
+    let printed: HashSet<Uuid> = chosen.iter().map(|(id, _)| *id).collect();
+    let on_page: HashSet<Uuid> = all
+        .iter()
+        .filter(|c| printed.contains(&c.bullet_id))
+        .map(|c| c.experience_id)
+        .collect();
+
+    for c in all {
+        if !printed.contains(&c.bullet_id) && on_page.contains(&c.experience_id) {
+            chosen.push((
+                c.bullet_id,
+                Chosen {
+                    text: c.text.clone(),
+                    was_reworded: false,
+                    score: c.score,
+                },
+            ));
+        }
+    }
 }
 
 fn candidate_list(shortlist: &[Candidate]) -> String {
@@ -51,6 +88,7 @@ pub async fn run(
     llm: &dyn LlmClient,
     parsed: &ParsedJob,
     shortlist: &[Candidate],
+    all: &[Candidate],
     vault: &[ExperienceDetail],
     profile: Option<Profile>,
     index: &SkillIndex,
@@ -121,6 +159,7 @@ pub async fn run(
         }
     }
 
+    deepen(&mut chosen, all);
     let skills_line = index.line(selection.skills_line.iter().map(String::as_str));
 
     Ok(SelectionOutcome {
@@ -134,6 +173,7 @@ pub async fn run(
 /// Used when the model call fails. A worse resume is still a resume; a crash is not.
 pub fn deterministic(
     shortlist: &[Candidate],
+    all: &[Candidate],
     vault: &[ExperienceDetail],
     profile: Option<Profile>,
     index: &SkillIndex,
@@ -141,7 +181,7 @@ pub fn deterministic(
 ) -> SelectionOutcome {
     let mut ranked: Vec<&Candidate> = shortlist.iter().collect();
     ranked.sort_by(|a, b| b.score.total_cmp(&a.score));
-    let chosen = ranked
+    let mut chosen: Vec<(Uuid, Chosen)> = ranked
         .into_iter()
         .take(FALLBACK_BULLETS)
         .map(|c| {
@@ -156,6 +196,8 @@ pub fn deterministic(
         })
         .collect();
 
+    // Taking the top scorers spreads them across experiences exactly as the model does.
+    deepen(&mut chosen, all);
     let skills_line = index.line(wanted.iter().map(String::as_str));
 
     SelectionOutcome {
@@ -286,14 +328,16 @@ fn assemble(
         if roles.is_empty() {
             continue;
         }
-        // Fit for the posting when the bullets were scored, intrinsic merit when they were
-        // not — the base resume leaves every bullet at 0.0, so `merit` is what ranks it.
+        // An experience is judged on its strongest line rather than the average of them:
+        // the lines `deepen` adds always score below the one that earned the entry its
+        // place, and a deeper entry must not lose that place for carrying them. Fit for the
+        // posting when the bullets were scored, intrinsic merit when they were not — the
+        // base resume leaves every bullet at 0.0, so `merit` is what ranks it.
         let fit: f32 = roles
             .iter()
             .flat_map(|r| r.bullets.iter())
             .map(|b| b.score)
-            .sum::<f32>()
-            / roles.iter().map(|r| r.bullets.len()).sum::<usize>().max(1) as f32;
+            .fold(0.0_f32, f32::max);
         let section = PlanSection {
             experience_id: detail.experience.id,
             org: detail.experience.org_name.clone(),
@@ -319,4 +363,64 @@ fn assemble(
         }
     }
     plan
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn candidate(experience_id: Uuid, text: &str, score: f32) -> Candidate {
+        Candidate {
+            bullet_id: Uuid::new_v4(),
+            text: text.into(),
+            role_id: Uuid::new_v4(),
+            role_title: "Intern".into(),
+            end_date: None,
+            experience_id,
+            org_name: "Org".into(),
+            skills: vec![],
+            experience_skills: vec![],
+            score,
+        }
+    }
+
+    /// The failure this exists to prevent: a page of entries carrying one line each, because
+    /// the model picked one bullet from each of them and nothing downstream adds lines.
+    #[test]
+    fn an_experience_on_the_page_is_filled_out_and_one_left_off_stays_off() {
+        let (kept, ignored) = (Uuid::new_v4(), Uuid::new_v4());
+        let shortlist = vec![
+            candidate(kept, "the line the model picked", 4.0),
+            candidate(kept, "another line from the same job", 2.5),
+            candidate(kept, "a third line from the same job", 1.0),
+            candidate(ignored, "a line from a job it passed over", 3.0),
+        ];
+        let mut chosen = vec![(
+            shortlist[0].bullet_id,
+            Chosen {
+                text: shortlist[0].text.clone(),
+                was_reworded: false,
+                score: shortlist[0].score,
+            },
+        )];
+
+        deepen(&mut chosen, &shortlist);
+
+        let ids: Vec<Uuid> = chosen.iter().map(|(id, _)| *id).collect();
+        assert_eq!(
+            ids.len(),
+            3,
+            "the picked entry carries its own lines: {ids:?}"
+        );
+        assert!(ids.contains(&shortlist[1].bullet_id));
+        assert!(ids.contains(&shortlist[2].bullet_id));
+        assert!(
+            !ids.contains(&shortlist[3].bullet_id),
+            "an experience the model passed over must not appear"
+        );
+        assert!(
+            chosen.iter().all(|(_, c)| !c.was_reworded),
+            "a filled-in line is the stored wording, so nothing claims a rewrite"
+        );
+    }
 }

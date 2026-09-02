@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { errorMessage, vault } from "./ipc";
 import type { BulletEdit, ExperienceDetail, UsedBullet } from "./types";
 
@@ -32,10 +32,13 @@ export default function DraftBullets({
   bullets,
   dropped = 0,
   onApply,
+  onPending,
 }: {
   bullets: UsedBullet[];
   dropped?: number;
   onApply: (edits: BulletEdit[]) => Promise<void>;
+  /** Told whenever edits are typed here but not yet applied to the document. */
+  onPending?: (pending: boolean) => void;
 }) {
   const [edits, setEdits] = useState<Record<string, { text: string; keep: boolean }>>({});
   const [available, setAvailable] = useState<Spare[]>([]);
@@ -70,6 +73,16 @@ export default function DraftBullets({
       return !e.keep || e.text.trim() !== b.rendered_text;
     });
   const keeping = bullets.filter((b) => stateOf(b).keep).length + adds.size;
+
+  // Typed edits live here until Apply recompiles them, and this section is collapsed by
+  // default. Saying so lets the page above refuse to save a document without them. Only on
+  // a change: a caller that dispatches into a reducer would otherwise re-render forever.
+  const reported = useRef(false);
+  useEffect(() => {
+    if (reported.current === dirty) return;
+    reported.current = dirty;
+    onPending?.(dirty);
+  }, [dirty, onPending]);
 
   function patch(b: UsedBullet, next: Partial<{ text: string; keep: boolean }>) {
     setEdits((prev) => ({ ...prev, [b.bullet_id]: { ...stateOf(b), ...next } }));

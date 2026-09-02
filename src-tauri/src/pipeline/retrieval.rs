@@ -114,25 +114,28 @@ pub fn score(
 
 /// The shortlist handed to the model: the highest scorers, plus a floor of one bullet per
 /// experience so a whole job never silently disappears from consideration.
+///
+/// `candidates` is scored and sorted in place, so the caller keeps the whole scored vault —
+/// `select::deepen` prints from it, and the shortlist is only what the model reads.
 pub fn shortlist(
-    mut candidates: Vec<Candidate>,
+    candidates: &mut [Candidate],
     wanted: &[String],
     topics: &[String],
     index: &SkillIndex,
 ) -> Vec<Candidate> {
-    score(&mut candidates, wanted, topics, index);
+    score(candidates, wanted, topics, index);
     candidates.sort_by(|a, b| b.score.total_cmp(&a.score));
 
     let mut kept: Vec<Candidate> = Vec::with_capacity(SHORTLIST);
     let mut represented: HashSet<uuid::Uuid> = HashSet::new();
-    for c in &candidates {
+    for c in candidates.iter() {
         if kept.len() >= SHORTLIST {
             break;
         }
         represented.insert(c.experience_id);
         kept.push(c.clone());
     }
-    for c in &candidates {
+    for c in candidates.iter() {
         if !represented.contains(&c.experience_id) {
             represented.insert(c.experience_id);
             kept.push(c.clone());
@@ -263,7 +266,7 @@ mod tests {
             .collect();
         cands.push(candidate("Filed paperwork", &[], forgotten, 3));
 
-        let kept = shortlist(cands, &["Python".into()], &[], &idx);
+        let kept = shortlist(&mut cands, &["Python".into()], &[], &idx);
         assert_eq!(kept.len(), SHORTLIST + 1);
         assert!(kept.iter().any(|c| c.experience_id == forgotten));
     }

@@ -165,9 +165,16 @@ not touch `sqlx` types. Repositories do not call the model.
   strongest experience, then restore the strongest benched bullet, reverting the move that
   spills to a second page. What the cap and the shrink take goes on a bench inside
   `ResumePlan`, which is what the grow pass spends.
-- **Experiences are ranked two ways.** A tailored resume ranks by fit for the posting (mean
-  bullet score from `retrieval`); the base resume has no posting, so it ranks by intrinsic
-  merit from `pipeline/strength.rs` — quantified outcome, then recency, then skill density,
+- **An entry that earns the page earns its lines.** `select::deepen` fills every experience
+  the model chose with the rest of its active bullets, verbatim, before the cap runs. The
+  model picks one line at a time and will return a single bullet from each of eight
+  experiences; nothing downstream could repair that, because `cap_bullets` only removes and
+  the grow pass spends a bench a thin selection never filled. An experience the model passed
+  over stays off entirely.
+- **Experiences are ranked two ways.** A tailored resume ranks by fit for the posting (the
+  score of its strongest bullet from `retrieval`, not the average — the lines `deepen` adds
+  score lower, and depth must not cost an entry its place); the base resume has no posting,
+  so it ranks by intrinsic merit from `pipeline/strength.rs` — quantified outcome, then recency, then skill density,
   in that order and for the reasons written there. Retired entries are named in the UI: the
   user is never silently edited.
 - **Page count comes from the TeX log** line `Output written on ... (N pages, ...)`. Do not

@@ -16,6 +16,9 @@ export default function BaseTab() {
   // Every compile overwrites the same preview.pdf, so the embed needs a changing URL.
   const [revision, setRevision] = useState(0);
   const [name, setName] = useState("");
+  // Edits typed in the bullet editor below and not yet applied. Saving over them would
+  // write the document the user is looking at rather than the one they just wrote.
+  const [pendingEdits, setPendingEdits] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [note, setNote] = useState<string | null>(null);
@@ -162,12 +165,23 @@ export default function BaseTab() {
               placeholder="Name this base resume"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && name.trim() && save()}
+              onKeyDown={(e) =>
+                e.key === "Enter" && name.trim() && !pendingEdits && save()
+              }
             />
-            <button className="primary" onClick={save} disabled={!name.trim()}>
+            <button
+              className="primary"
+              onClick={save}
+              disabled={!name.trim() || pendingEdits}
+            >
               Save
             </button>
           </div>
+          {pendingEdits && (
+            <div className="muted">
+              You have edits below that this resume does not have yet — apply them first.
+            </div>
+          )}
           {preview.retired.length > 0 && (
             <div className="muted">
               Left off to reach one page: {preview.retired.join(", ")}. Pin an experience in
@@ -176,6 +190,7 @@ export default function BaseTab() {
           )}
           <DraftBullets
             bullets={preview.used_bullets}
+            onPending={setPendingEdits}
             onApply={async (edits) => {
               setPreview(await base.revise(edits));
               setRevision((r) => r + 1);

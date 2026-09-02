@@ -78,18 +78,26 @@ pub async fn generate(
 
     let profile = db::profile::get(&state.pool).await?;
     let vault = db::experience::list_details(&state.pool).await?;
-    let candidates = db::bullet::candidates(&state.pool).await?;
+    // `candidates` comes back scored and sorted: the shortlist is what the model reads, the
+    // whole set is what fills out the entries it chose.
+    let mut candidates = db::bullet::candidates(&state.pool).await?;
     if candidates.is_empty() {
         return Err(AppError::Invalid(
             "the vault is empty — add an experience before generating".into(),
         ));
     }
-    let shortlist = retrieval::shortlist(candidates, &parsed.hard_skills, &topics(&parsed), &index);
+    let shortlist = retrieval::shortlist(
+        &mut candidates,
+        &parsed.hard_skills,
+        &topics(&parsed),
+        &index,
+    );
 
     let outcome = match select::run(
         state.llm.as_ref(),
         &parsed,
         &shortlist,
+        &candidates,
         &vault,
         profile.clone(),
         &index,
@@ -101,7 +109,14 @@ pub async fn generate(
         Ok(o) => o,
         Err(e) => {
             tracing::warn!("selection fell back to deterministic scoring: {e}");
-            select::deterministic(&shortlist, &vault, profile, &index, &parsed.hard_skills)
+            select::deterministic(
+                &shortlist,
+                &candidates,
+                &vault,
+                profile,
+                &index,
+                &parsed.hard_skills,
+            )
         }
     };
 
