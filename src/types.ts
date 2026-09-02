@@ -38,7 +38,10 @@ export interface Experience {
   kind: ExperienceKind;
   org_name: string;
   location: string | null;
+  /** Printed by the Projects section in place of the date range; see `link_text`. */
   url: string | null;
+  /** What `url` reads as on the page. Blank falls back to the shortened URL. */
+  link_text: string | null;
   tech_line: string | null;
   display_order: number;
   is_active: boolean;
@@ -50,7 +53,8 @@ export interface Role {
   experience_id: string;
   title: string;
   location: string | null;
-  start_date: string;
+  /** Absent when the entry has no calendar range to print; see `date_override`. */
+  start_date: string | null;
   end_date: string | null;
   date_override: string | null;
   /** Free text, printed after the degree on education entries. */
@@ -102,6 +106,7 @@ export interface ExperienceInput {
   org_name: string;
   location: string | null;
   url: string | null;
+  link_text: string | null;
   tech_line: string | null;
   display_order: number;
   is_active: boolean;
@@ -113,7 +118,7 @@ export interface RoleInput {
   experience_id: string;
   title: string;
   location: string | null;
-  start_date: string;
+  start_date: string | null;
   end_date: string | null;
   date_override: string | null;
   gpa: string | null;

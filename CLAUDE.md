@@ -59,7 +59,7 @@ npm run tauri dev
 createdb resume_fixer
 # `db::pool::migrate` runs migrations/ at startup — there is no separate migrate step.
 # The vault opens empty; seed it if you want real data to work against:
-psql resume_fixer -f seed/0002_seed.sql   # then 0007, 0008, 0010 in order
+psql resume_fixer -f seed/0002_seed.sql   # then 0007, 0008, 0010, 0016 in order
 
 # Rust
 cd src-tauri
@@ -134,6 +134,17 @@ not touch `sqlx` types. Repositories do not call the model.
 - **One experience can have several roles.** Rajant Health has both a Computer Engineering
   Intern and a Software Engineering Intern stint. The template renders the first with
   `\resumeSubheading` and the rest with `\resumeSubSubheading`.
+- **A role's calendar dates are optional; `date_override` is what prints when set.**
+  `render::tex::format_dates` returns the override whenever it is non-blank, the computed
+  range when both dates are there, and an empty string when a role has neither — which is
+  how an expected graduation prints as "Spring 2029" with no dates behind it. Roles with no
+  start date sort after the dated ones.
+- **A project prints a clickable link where its dates would go.** `experiences.url` set
+  means the Projects heading emits `\href{url}{\underline{label}}` in the right-hand slot
+  and the date range stays in the vault unprinted — one narrow slot, one occupant. The
+  label is `experiences.link_text`, falling back to the URL without its scheme. A URL with
+  no scheme gets `https://` so the PDF link is not dead. Only the Projects section does
+  this; everywhere else the slot is dates.
 - **Skills are tagged on both bullets and experiences.** Bullet tags drive precision,
   experience tags catch relevance the bullet text does not spell out. Both feed retrieval.
 - **Skill matching is by `slug` plus `aliases[]`**, always case-folded. Never match on

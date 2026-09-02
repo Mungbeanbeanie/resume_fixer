@@ -73,6 +73,10 @@ pub struct PlanSection {
     pub org: String,
     pub location: String,
     pub tech: String,
+    /// Where a project lives. The Projects section prints it in place of the dates.
+    pub url: Option<String>,
+    /// What that link reads as; blank falls back to the shortened URL.
+    pub link_text: Option<String>,
     /// Education and activities print a heading that carries the fact by itself — a degree,
     /// a club. Everywhere else a role with no bullets left under it is dead weight.
     pub keep_empty: bool,
@@ -182,6 +186,8 @@ impl ResumePlan {
                     name: p.org.clone(),
                     tech: p.tech.clone(),
                     dates: p.roles.first().map(|r| r.dates.clone()).unwrap_or_default(),
+                    url: p.url.clone(),
+                    link_text: p.link_text.clone(),
                     bullets: p
                         .roles
                         .iter()
@@ -628,6 +634,8 @@ mod tests {
             org: org.into(),
             location: "Remote".into(),
             tech: String::new(),
+            url: None,
+            link_text: None,
             keep_empty: false,
             score: 0.0,
             pinned: false,
@@ -760,6 +768,8 @@ mod tests {
                 org: "Rajant Health".into(),
                 location: "Remote".into(),
                 tech: String::new(),
+                url: None,
+                link_text: None,
                 keep_empty: false,
                 score: 0.0,
                 pinned: false,
@@ -863,6 +873,7 @@ mod tests {
                 org_name: section.org.clone(),
                 location: None,
                 url: None,
+                link_text: None,
                 tech_line: None,
                 display_order: 0,
                 is_active: true,
@@ -875,7 +886,7 @@ mod tests {
                     experience_id: section.experience_id,
                     title: role.title.clone(),
                     location: None,
-                    start_date: chrono::NaiveDate::from_ymd_opt(2026, 1, 1).unwrap(),
+                    start_date: chrono::NaiveDate::from_ymd_opt(2026, 1, 1),
                     end_date: None,
                     date_override: Some(role.dates.clone()),
                     gpa: None,

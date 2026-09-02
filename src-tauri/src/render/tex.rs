@@ -44,6 +44,20 @@ pub fn escape_url(s: &str) -> String {
         .replace('_', "\\_")
 }
 
+/// Gives a bare host a scheme so `\href` produces an absolute link.
+///
+/// A user typing `github.com/me/project` means the site, but a PDF reader hands a
+/// scheme-less target to nothing at all — the link is dead on the page and the user has no
+/// way to see that from the vault.
+fn absolute(url: &str) -> String {
+    let url = url.trim();
+    if url.contains("://") || url.starts_with("mailto:") {
+        url.to_string()
+    } else {
+        format!("https://{url}")
+    }
+}
+
 fn month(m: u32) -> &'static str {
     // Short months keep their full name; the rest are abbreviated with a period. This is
     // the convention the reference resume already uses.
@@ -59,19 +73,43 @@ fn stamp(d: NaiveDate) -> String {
 
 /// `Aug. 2025 -- May 2029`, `June 2026 -- Present`, or a single stamp when a role starts
 /// and ends in the same month. `date_override` wins outright when the user set one.
+///
+/// Both calendar dates are optional, so an entry whose range cannot be computed — an
+/// expected graduation, say — prints its override alone, and an entry with neither a range
+/// nor an override prints an empty slot rather than an invented date.
 pub fn format_dates(
-    start: NaiveDate,
+    start: Option<NaiveDate>,
     end: Option<NaiveDate>,
     date_override: Option<&str>,
 ) -> String {
     if let Some(o) = date_override.map(str::trim).filter(|o| !o.is_empty()) {
         return o.to_string();
     }
-    match end {
-        None => format!("{} -- Present", stamp(start)),
-        Some(e) if e.year() == start.year() && e.month() == start.month() => stamp(start),
-        Some(e) => format!("{} -- {}", stamp(start), stamp(e)),
+    match (start, end) {
+        (None, None) => String::new(),
+        (None, Some(e)) => stamp(e),
+        (Some(s), None) => format!("{} -- Present", stamp(s)),
+        (Some(s), Some(e)) if e.year() == s.year() && e.month() == s.month() => stamp(s),
+        (Some(s), Some(e)) => format!("{} -- {}", stamp(s), stamp(e)),
     }
+}
+
+/// What a URL reads as on the page when the user supplied no label of their own.
+///
+/// Strips the scheme, any `www.`, and a trailing slash, leaving `github.com/user/repo`.
+/// The date slot it prints in is narrow, so this is a fallback rather than the intent —
+/// a hand-written "GitHub" fits where a long repo path does not.
+pub fn link_label(url: &str, link_text: Option<&str>) -> String {
+    if let Some(t) = link_text.map(str::trim).filter(|t| !t.is_empty()) {
+        return t.to_string();
+    }
+    let bare = url
+        .trim()
+        .trim_start_matches("https://")
+        .trim_start_matches("http://")
+        .trim_start_matches("www.")
+        .trim_end_matches('/');
+    bare.to_string()
 }
 
 // ── Context shape ───────────────────────────────────────────────────────
@@ -96,6 +134,10 @@ pub struct ProjectBlock {
     pub name: String,
     pub tech: String,
     pub dates: String,
+    /// Where the project lives. Set means the heading prints a link instead of `dates`.
+    pub url: Option<String>,
+    /// What that link reads as; see `link_label` for the fallback.
+    pub link_text: Option<String>,
     pub bullets: Vec<String>,
 }
 
@@ -137,6 +179,9 @@ struct ProjectOut {
     name: String,
     tech: String,
     dates: String,
+    /// Empty unless the project has a URL, which is what the template branches on.
+    url: String,
+    link_label: String,
     bullets: Vec<String>,
 }
 
@@ -202,11 +247,20 @@ pub fn build_context(input: &RenderInput) -> Context {
         &input
             .projects
             .iter()
-            .map(|p| ProjectOut {
-                name: escape(&p.name),
-                tech: escape(&p.tech),
-                dates: escape(&p.dates),
-                bullets: p.bullets.iter().map(|t| escape(t)).collect(),
+            .map(|p| {
+                // A link and a date range compete for one narrow slot, so the link wins
+                // outright and the vault keeps the dates either way.
+                let url = p.url.as_deref().map(str::trim).filter(|u| !u.is_empty());
+                ProjectOut {
+                    name: escape(&p.name),
+                    tech: escape(&p.tech),
+                    dates: escape(&p.dates),
+                    url: url.map(|u| escape_url(&absolute(u))).unwrap_or_default(),
+                    link_label: url
+                        .map(|u| escape(&link_label(u, p.link_text.as_deref())))
+                        .unwrap_or_default(),
+                    bullets: p.bullets.iter().map(|t| escape(t)).collect(),
+                }
             })
             .collect::<Vec<_>>(),
     );
@@ -279,27 +333,91 @@ mod tests {
 
     #[test]
     fn dates_follow_the_reference_conventions() {
-        let d = |y, m, day| NaiveDate::from_ymd_opt(y, m, day).unwrap();
+        let d = |y, m, day| Some(NaiveDate::from_ymd_opt(y, m, day).unwrap());
         assert_eq!(
-            format_dates(d(2025, 8, 1), Some(d(2029, 5, 1)), None),
+            format_dates(d(2025, 8, 1), d(2029, 5, 1), None),
             "Aug. 2025 -- May 2029"
         );
+        assert_eq!(format_dates(d(2026, 6, 1), None, None), "June 2026 -- Present");
+        assert_eq!(format_dates(d(2026, 4, 1), d(2026, 4, 30), None), "Apr. 2026");
         assert_eq!(
-            format_dates(d(2026, 6, 1), None, None),
-            "June 2026 -- Present"
-        );
-        assert_eq!(
-            format_dates(d(2026, 4, 1), Some(d(2026, 4, 30)), None),
-            "Apr. 2026"
-        );
-        assert_eq!(
-            format_dates(d(2026, 4, 1), Some(d(2026, 4, 30)), Some("Summer 2025")),
+            format_dates(d(2026, 4, 1), d(2026, 4, 30), Some("Summer 2025")),
             "Summer 2025"
         );
         assert_eq!(
             format_dates(d(2026, 4, 1), None, Some("  ")),
             "Apr. 2026 -- Present"
         );
+    }
+
+    #[test]
+    fn a_role_without_calendar_dates_prints_its_override_or_nothing() {
+        let d = |y, m, day| Some(NaiveDate::from_ymd_opt(y, m, day).unwrap());
+        assert_eq!(format_dates(None, None, Some("Spring 2029")), "Spring 2029");
+        assert_eq!(format_dates(None, None, None), "");
+        assert_eq!(format_dates(None, None, Some("   ")), "");
+        // An end with no start still names the month it happened in.
+        assert_eq!(format_dates(None, d(2029, 5, 1), None), "May 2029");
+    }
+
+    #[test]
+    fn a_link_label_falls_back_to_the_url_without_its_scheme() {
+        assert_eq!(
+            link_label("https://github.com/Mungbeanbeanie/sniped", None),
+            "github.com/Mungbeanbeanie/sniped"
+        );
+        assert_eq!(link_label("http://www.polidex.dev/", None), "polidex.dev");
+        assert_eq!(
+            link_label("https://github.com/Mungbeanbeanie/sniped", Some("GitHub")),
+            "GitHub"
+        );
+        // A label of nothing but whitespace is no label.
+        assert_eq!(link_label("https://polidex.dev", Some("  ")), "polidex.dev");
+    }
+
+    #[test]
+    fn a_scheme_less_url_is_made_absolute_before_it_reaches_href() {
+        assert_eq!(absolute("github.com/me/x"), "https://github.com/me/x");
+        assert_eq!(absolute("  polidex.dev  "), "https://polidex.dev");
+        assert_eq!(absolute("http://polidex.dev"), "http://polidex.dev");
+        assert_eq!(absolute("https://polidex.dev"), "https://polidex.dev");
+    }
+
+    #[test]
+    fn a_project_link_replaces_the_dates_and_stays_escaped() {
+        let input = RenderInput {
+            projects: vec![ProjectBlock {
+                name: "PoliDex".into(),
+                tech: "Python".into(),
+                dates: "Apr. 2026".into(),
+                url: Some("https://devpost.com/software/poli_dex?ref=a&b=1".into()),
+                link_text: Some("Devpost".into()),
+                bullets: vec!["Built a political alignment engine".into()],
+            }],
+            ..Default::default()
+        };
+        let out = render(DEFAULT_TEMPLATE, &input).unwrap();
+        assert!(out.contains("\\href{"), "no link emitted in {out}");
+        assert!(out.contains("{\\underline{Devpost}}"), "label missing in {out}");
+        assert!(!out.contains("Apr. 2026"), "dates still printed alongside the link");
+        // `&` is TeX-active inside \href, so the query string must arrive escaped.
+        assert!(out.contains("ref=a\\&b=1"), "bare & in the href of {out}");
+    }
+
+    #[test]
+    fn a_project_without_a_link_still_prints_its_dates() {
+        let input = RenderInput {
+            projects: vec![ProjectBlock {
+                name: "Sniped".into(),
+                dates: "Dec. 2025 -- Mar. 2026".into(),
+                bullets: vec!["Deployed a RESTful API".into()],
+                ..Default::default()
+            }],
+            ..Default::default()
+        };
+        let out = render(DEFAULT_TEMPLATE, &input).unwrap();
+        assert!(out.contains("Dec. 2025 -- Mar. 2026"), "dates missing in {out}");
+        assert!(!out.contains("\\href{}"), "empty href emitted in {out}");
     }
 
     #[test]

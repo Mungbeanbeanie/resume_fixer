@@ -50,11 +50,11 @@ function RoleBlock({ role }: { role: RoleDetail }) {
           />
         </div>
         <div>
-          <span className="field-label">Start</span>
+          <span className="field-label">Start (optional)</span>
           <input
             type="date"
-            value={draft.start_date}
-            onChange={(e) => save({ start_date: e.target.value })}
+            value={draft.start_date ?? ""}
+            onChange={(e) => save({ start_date: e.target.value || null })}
           />
         </div>
         <div>
@@ -68,11 +68,15 @@ function RoleBlock({ role }: { role: RoleDetail }) {
         <div>
           <span className="field-label">Date override</span>
           <input
-            placeholder="e.g. Summer 2025"
+            placeholder="e.g. Spring 2029"
             value={draft.date_override ?? ""}
             onChange={(e) => setDraft({ ...draft, date_override: e.target.value || null })}
             onBlur={() => save({})}
           />
+          <span className="muted" style={{ fontSize: 11 }}>
+            Printed instead of the dates above. Leave every date field blank to print no
+            date at all.
+          </span>
         </div>
       </div>
 
@@ -134,6 +138,7 @@ export default function ExperienceCard({ detail }: { detail: ExperienceDetail })
           org_name: next.org_name,
           location: next.location,
           url: next.url,
+          link_text: next.link_text,
           tech_line: next.tech_line,
           display_order: next.display_order,
           is_active: next.is_active,
@@ -204,6 +209,33 @@ export default function ExperienceCard({ detail }: { detail: ExperienceDetail })
               onChange={(e) => setDraft({ ...draft, tech_line: e.target.value || null })}
               onBlur={() => save()}
             />
+          </div>
+        </div>
+
+        <div className="grid-2" style={{ marginTop: 12 }}>
+          <div>
+            <span className="field-label">Link (projects)</span>
+            <input
+              placeholder="https://github.com/you/project"
+              value={draft.url ?? ""}
+              onChange={(e) => setDraft({ ...draft, url: e.target.value || null })}
+              onBlur={() => save()}
+            />
+            <span className="muted" style={{ fontSize: 11 }}>
+              Printed as a clickable link in place of the project's dates.
+            </span>
+          </div>
+          <div>
+            <span className="field-label">Link text</span>
+            <input
+              placeholder="e.g. GitHub"
+              value={draft.link_text ?? ""}
+              onChange={(e) => setDraft({ ...draft, link_text: e.target.value || null })}
+              onBlur={() => save()}
+            />
+            <span className="muted" style={{ fontSize: 11 }}>
+              Blank prints the shortened URL.
+            </span>
           </div>
         </div>
 

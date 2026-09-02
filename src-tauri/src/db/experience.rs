@@ -7,7 +7,8 @@ use std::collections::HashMap;
 use uuid::Uuid;
 
 const COLS: &str =
-    "id, kind, org_name, location, url, tech_line, display_order, is_active, is_pinned";
+    "id, kind, org_name, location, url, link_text, tech_line, display_order, is_active,
+     is_pinned";
 
 pub async fn list(pool: &PgPool) -> Result<Vec<Experience>> {
     Ok(sqlx::query_as::<_, Experience>(&format!(
@@ -19,11 +20,13 @@ pub async fn list(pool: &PgPool) -> Result<Vec<Experience>> {
 
 pub async fn upsert(pool: &PgPool, input: &ExperienceInput) -> Result<Experience> {
     Ok(sqlx::query_as::<_, Experience>(&format!(
-        "INSERT INTO experiences (id, kind, org_name, location, url, tech_line, display_order, is_active, is_pinned)
-         VALUES (COALESCE($1, gen_random_uuid()), $2, $3, $4, $5, $6, $7, $8, $9)
+        "INSERT INTO experiences (id, kind, org_name, location, url, link_text, tech_line,
+                                  display_order, is_active, is_pinned)
+         VALUES (COALESCE($1, gen_random_uuid()), $2, $3, $4, $5, $6, $7, $8, $9, $10)
          ON CONFLICT (id) DO UPDATE
            SET kind = EXCLUDED.kind, org_name = EXCLUDED.org_name, location = EXCLUDED.location,
-               url = EXCLUDED.url, tech_line = EXCLUDED.tech_line,
+               url = EXCLUDED.url, link_text = EXCLUDED.link_text,
+               tech_line = EXCLUDED.tech_line,
                display_order = EXCLUDED.display_order, is_active = EXCLUDED.is_active,
                is_pinned = EXCLUDED.is_pinned, updated_at = now()
          RETURNING {COLS}"
@@ -33,6 +36,7 @@ pub async fn upsert(pool: &PgPool, input: &ExperienceInput) -> Result<Experience
     .bind(&input.org_name)
     .bind(&input.location)
     .bind(&input.url)
+    .bind(&input.link_text)
     .bind(&input.tech_line)
     .bind(input.display_order)
     .bind(input.is_active)
@@ -102,7 +106,7 @@ pub async fn list_details(pool: &PgPool) -> Result<Vec<ExperienceDetail>> {
     let roles = sqlx::query_as::<_, Role>(
         "SELECT id, experience_id, title, location, start_date, end_date, date_override,
                 gpa, display_order, is_active
-         FROM roles ORDER BY start_date DESC, display_order",
+         FROM roles ORDER BY start_date DESC NULLS LAST, display_order",
     )
     .fetch_all(pool)
     .await?;

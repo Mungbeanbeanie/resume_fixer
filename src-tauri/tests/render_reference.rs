@@ -84,6 +84,8 @@ fn reference_input() -> RenderInput {
                 name: "Sniped -- Gamified Social Network (iOS)".into(),
                 tech: "PostgreSQL, Node.js, Express, Docker, AWS".into(),
                 dates: "Dec. 2025 -- Mar. 2026".into(),
+                url: None,
+                link_text: None,
                 bullets: vec![
                     "Designed and deployed RESTful API (20+ endpoints) on AWS EC2 with Docker, Nginx reverse proxy, and automated CI/CD via GitLab pipelines".into(),
                     "Implemented JWT authentication with Row-Level Security across 10+ PostgreSQL tables, including dual-client authorization pattern for service-role vs. public access".into(),
@@ -94,6 +96,8 @@ fn reference_input() -> RenderInput {
                 name: "Microsoft Garage -- Network Vulnerability Tool".into(),
                 tech: "JavaScript, Firebase, Node.js".into(),
                 dates: "Jan. 2025 -- Mar. 2025".into(),
+                url: None,
+                link_text: None,
                 bullets: vec![
                     "Developed front-end interface and Firebase data pipeline for network vulnerability detection tool; integrated ChatGPT API for vulnerability analysis, optimizing performance and cost for constrained environments".into(),
                 ],
@@ -102,6 +106,8 @@ fn reference_input() -> RenderInput {
                 name: "PoliDex -- Political Alignment Engine".into(),
                 tech: "Python, Java, Next.js, React, TypeScript, MongoDB".into(),
                 dates: "Apr. 2026".into(),
+                url: None,
+                link_text: None,
                 bullets: vec![
                     "Built and shipped political alignment engine in 24 hours; scores politicians across a 20-dimensional policy vector space using a custom variance-weighted cosine similarity formula, a Java/Python/Next.js architecture, and a k-d tree index for sublinear 20D nearest-neighbor search; won Best Use of MongoDB Atlas at Hackabull VII".into(),
                 ],

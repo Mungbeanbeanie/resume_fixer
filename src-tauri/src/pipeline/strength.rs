@@ -104,6 +104,7 @@ mod tests {
                 org_name: "Rajant Health".into(),
                 location: None,
                 url: None,
+                link_text: None,
                 tech_line: None,
                 display_order: 0,
                 is_active: true,
@@ -116,7 +117,7 @@ mod tests {
                     experience_id: Uuid::new_v4(),
                     title: "Intern".into(),
                     location: None,
-                    start_date: NaiveDate::from_ymd_opt(2024, 1, 1).unwrap(),
+                    start_date: NaiveDate::from_ymd_opt(2024, 1, 1),
                     end_date: Some(
                         Utc::now().date_naive() - chrono::Duration::days(365 * years_ago),
                     ),

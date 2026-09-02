@@ -121,6 +121,8 @@ mod tests {
             org: org.into(),
             location: "Charlottesville, VA".into(),
             tech: String::new(),
+            url: None,
+            link_text: None,
             keep_empty: false,
             score,
             pinned: false,

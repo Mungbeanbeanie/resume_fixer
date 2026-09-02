@@ -149,7 +149,7 @@
 \section{Projects}
     \resumeSubHeadingListStart
 {% for p in projects %}      \resumeProjectHeading
-          {\textbf{ {{- p.name -}} }{% if p.tech %} $|$ \emph{ {{- p.tech -}} }{% endif %}}{ {{- p.dates -}} }
+          {\textbf{ {{- p.name -}} }{% if p.tech %} $|$ \emph{ {{- p.tech -}} }{% endif %}}{% if p.url %}{\href{ {{- p.url -}} }{\underline{ {{- p.link_label -}} }}}{% else %}{ {{- p.dates -}} }{% endif %}
 {% if p.bullets %}          \resumeItemListStart
 {% for b in p.bullets %}            \resumeItem{ {{- b -}} }
 {% endfor %}          \resumeItemListEnd

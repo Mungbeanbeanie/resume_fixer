@@ -78,7 +78,10 @@ pub struct Experience {
     pub kind: ExperienceKind,
     pub org_name: String,
     pub location: Option<String>,
+    /// Printed by the Projects section in place of the date range; see `link_text`.
     pub url: Option<String>,
+    /// What `url` reads as on the page. Blank falls back to the shortened URL.
+    pub link_text: Option<String>,
     pub tech_line: Option<String>,
     pub display_order: i32,
     pub is_active: bool,
@@ -92,7 +95,9 @@ pub struct Role {
     pub experience_id: Uuid,
     pub title: String,
     pub location: Option<String>,
-    pub start_date: NaiveDate,
+    /// Absent when the entry has no calendar range to print — an expected graduation
+    /// carries only a `date_override`.
+    pub start_date: Option<NaiveDate>,
     pub end_date: Option<NaiveDate>,
     pub date_override: Option<String>,
     /// Free text, printed after the degree on education entries. Free rather than numeric
@@ -165,6 +170,7 @@ pub struct ExperienceInput {
     pub org_name: String,
     pub location: Option<String>,
     pub url: Option<String>,
+    pub link_text: Option<String>,
     pub tech_line: Option<String>,
     pub display_order: i32,
     pub is_active: bool,
@@ -178,7 +184,7 @@ pub struct RoleInput {
     pub experience_id: Uuid,
     pub title: String,
     pub location: Option<String>,
-    pub start_date: NaiveDate,
+    pub start_date: Option<NaiveDate>,
     pub end_date: Option<NaiveDate>,
     pub date_override: Option<String>,
     pub gpa: Option<String>,

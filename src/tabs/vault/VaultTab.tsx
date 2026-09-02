@@ -233,6 +233,7 @@ export default function VaultTab() {
         org_name: "New entry",
         location: null,
         url: null,
+        link_text: null,
         tech_line: null,
         display_order: experiences.length,
         is_active: true,

@@ -134,7 +134,7 @@ pub async fn candidates(pool: &PgPool) -> Result<Vec<Candidate>> {
          JOIN roles r ON r.id = b.role_id
          JOIN experiences e ON e.id = r.experience_id
          WHERE b.is_active AND r.is_active AND e.is_active
-         ORDER BY e.display_order, r.start_date DESC, b.display_order",
+         ORDER BY e.display_order, r.start_date DESC NULLS LAST, b.display_order",
     )
     .fetch_all(pool)
     .await?;

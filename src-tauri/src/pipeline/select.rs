@@ -299,6 +299,8 @@ fn assemble(
             org: detail.experience.org_name.clone(),
             location: detail.experience.location.clone().unwrap_or_default(),
             tech: detail.experience.tech_line.clone().unwrap_or_default(),
+            url: detail.experience.url.clone(),
+            link_text: detail.experience.link_text.clone(),
             keep_empty,
             score: if fit > 0.0 {
                 fit
