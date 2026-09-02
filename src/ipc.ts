@@ -18,6 +18,7 @@ import type {
   GenerationResult,
   HealthReport,
   IngestResult,
+  ManualApplication,
   Profile,
   Role,
   RoleInput,
@@ -100,6 +101,8 @@ export const base = {
 };
 
 export const library = {
+  trackApplication: (input: ManualApplication) =>
+    invoke<string>("library_track_application", { input }),
   listApplications: (filter?: ApplicationStatus | null) =>
     invoke<ApplicationSummary[]>("library_list_applications", { filter: filter ?? null }),
   getApplication: (id: string) => invoke<ApplicationDetail>("library_get_application", { id }),

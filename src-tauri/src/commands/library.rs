@@ -3,9 +3,18 @@
 use crate::db;
 use crate::domain::*;
 use crate::error::Result;
+use crate::services;
 use crate::state::AppState;
 use tauri::State;
 use uuid::Uuid;
+
+#[tauri::command]
+pub async fn library_track_application(
+    state: State<'_, AppState>,
+    input: ManualApplication,
+) -> Result<Uuid> {
+    services::library::track(&state, input).await
+}
 
 #[tauri::command]
 pub async fn library_list_applications(

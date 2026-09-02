@@ -260,7 +260,10 @@ CREATE TABLE resume_bullets (
 
 **Why `resume_bullets` matters:** every printed line traces to a row in `bullets` via a
 foreign key. If a line cannot be attributed, it cannot be rendered. That is the structural
-half of the anti-hallucination guarantee; section 4.5 is the textual half.
+half of the anti-hallucination guarantee; section 4.5 is the textual half. The guarantee is
+about what may be written, not about what the vault must keep forever: deleting a bullet
+takes its provenance rows with it (`0017`), and what was sent stays in `resumes.tex_source`
+and the stored PDF.
 
 ### Beyond 0001
 
@@ -276,6 +279,8 @@ here exists so a reader knows what to expect, not so it can be read instead:
 | `0011_profile_interests` | `profile.interests`, one comma-separated line, Simplify only |
 | `0012_role_gpa` | `roles.gpa`, free text: it belongs to the degree, not the school |
 | `0013_assessment_and_rounds` | `application_status` rebuilt as `saved, applied, oa_received, oa_completed, interview_1..3, offer, rejected, withdrawn`; existing `interview` rows land on round one |
+| `0017_bullet_delete_cascade` | `resume_bullets.bullet_id` becomes `ON DELETE CASCADE` — a bullet any saved resume had printed could not be deleted from the vault at all |
+| `0018_skill_listed_order` | `skills.listed_at` — when a skill was checked, which is the order the base resume prints them in |
 
 `migrations/` carries schema only, so a fresh database opens to an empty vault. One
 person's experience history is content, not structure, and a migration that inserts it

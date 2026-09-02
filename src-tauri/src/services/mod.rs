@@ -3,4 +3,5 @@
 
 pub mod base;
 pub mod generate;
+pub mod library;
 pub mod vault;

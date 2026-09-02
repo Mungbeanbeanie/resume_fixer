@@ -28,9 +28,14 @@ pub fn slugify(name: &str) -> String {
     out
 }
 
+/// Every skill, the checked ones first in the order they were checked.
+///
+/// This order is what the base resume prints, so it is the user's own: `listed_at` is
+/// stamped when a box is ticked. Everything unchecked sorts alphabetically behind it.
 pub async fn list(pool: &PgPool) -> Result<Vec<Skill>> {
     Ok(sqlx::query_as::<_, Skill>(
-        "SELECT id, name, slug, category, aliases, always_list FROM skills ORDER BY name",
+        "SELECT id, name, slug, category, aliases, always_list FROM skills
+         ORDER BY listed_at NULLS LAST, name",
     )
     .fetch_all(pool)
     .await?)
@@ -40,11 +45,12 @@ pub async fn list(pool: &PgPool) -> Result<Vec<Skill>> {
 ///
 /// An existing row keeps its display name, aliases and listing flag; a first-seen name
 /// defines them and starts listed, since a skill worth tagging is worth printing. The flag
-/// is never rewritten here: re-saving a bullet must not undo a box the user unchecked.
+/// is never rewritten here: re-saving a bullet must not undo a box the user unchecked, and
+/// it must not move a checked one to the end of the printed line either.
 pub async fn upsert_by_name(pool: &PgPool, name: &str) -> Result<Skill> {
     let slug = slugify(name);
     Ok(sqlx::query_as::<_, Skill>(
-        "INSERT INTO skills (name, slug, always_list) VALUES ($1, $2, TRUE)
+        "INSERT INTO skills (name, slug, always_list, listed_at) VALUES ($1, $2, TRUE, now())
          ON CONFLICT (slug) DO UPDATE SET slug = EXCLUDED.slug
          RETURNING id, name, slug, category, aliases, always_list",
     )
@@ -58,12 +64,13 @@ pub async fn upsert_by_name(pool: &PgPool, name: &str) -> Result<Skill> {
 /// the base resume.
 ///
 /// An existing row keeps its display name and aliases, as `upsert_by_name` does — only the
-/// listing flag is written.
+/// listing flag is written, and a row already listed keeps the place it prints in.
 pub async fn add_listed(pool: &PgPool, name: &str) -> Result<Skill> {
     let slug = slugify(name);
     Ok(sqlx::query_as::<_, Skill>(
-        "INSERT INTO skills (name, slug, always_list) VALUES ($1, $2, TRUE)
-         ON CONFLICT (slug) DO UPDATE SET always_list = TRUE
+        "INSERT INTO skills (name, slug, always_list, listed_at) VALUES ($1, $2, TRUE, now())
+         ON CONFLICT (slug) DO UPDATE
+           SET always_list = TRUE, listed_at = COALESCE(skills.listed_at, now())
          RETURNING id, name, slug, category, aliases, always_list",
     )
     .bind(name.trim())
@@ -76,12 +83,21 @@ pub async fn add_listed(pool: &PgPool, name: &str) -> Result<Skill> {
 ///
 /// Never deletes the row: the slug and aliases still serve job-posting matching, and the
 /// tags pointing at it would cascade away with it.
+///
+/// Checking a skill stamps `listed_at`, which is the order the base resume prints in.
+/// Unchecking clears it, so ticking the box again puts the skill at the end of the line —
+/// the only way to move one, and the reason turning it on is idempotent.
 pub async fn set_always_list(pool: &PgPool, id: Uuid, on: bool) -> Result<()> {
-    sqlx::query("UPDATE skills SET always_list = $2 WHERE id = $1")
-        .bind(id)
-        .bind(on)
-        .execute(pool)
-        .await?;
+    sqlx::query(
+        "UPDATE skills
+            SET always_list = $2,
+                listed_at = CASE WHEN $2 THEN COALESCE(listed_at, now()) ELSE NULL END
+          WHERE id = $1",
+    )
+    .bind(id)
+    .bind(on)
+    .execute(pool)
+    .await?;
     Ok(())
 }
 

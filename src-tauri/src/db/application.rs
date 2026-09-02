@@ -23,7 +23,9 @@ pub async fn create(
     status: ApplicationStatus,
 ) -> Result<Application> {
     let mut tx = pool.begin().await?;
-    let applied_at = matches!(status, ApplicationStatus::Applied).then(chrono::Utc::now);
+    // Same rule `set_status` uses: anything past `saved` has been sent, and one tracked
+    // after the fact often opens at a later status than `applied`.
+    let applied_at = (!matches!(status, ApplicationStatus::Saved)).then(chrono::Utc::now);
     let app = sqlx::query_as::<_, Application>(&format!(
         "INSERT INTO applications (url, company, role_title, job_text, job_source, parsed,
                                    status, applied_at)

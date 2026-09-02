@@ -194,6 +194,17 @@ export type ApplicationDetail = Application & {
   history: StatusChange[];
 };
 
+/** A submission tracked by hand, with the PDF that was sent. */
+export interface ManualApplication {
+  company: string | null;
+  role_title: string | null;
+  url: string | null;
+  status: ApplicationStatus;
+  notes: string | null;
+  /** Bytes of the PDF that was sent. */
+  pdf: number[] | null;
+}
+
 export interface ApplicationPatch {
   company: string | null;
   role_title: string | null;

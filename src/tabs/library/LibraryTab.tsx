@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { openPath, openUrl } from "@tauri-apps/plugin-opener";
 import { errorMessage, library } from "../../ipc";
 import type {
@@ -29,6 +29,127 @@ const label = (status: ApplicationStatus) =>
 function StatusPill({ status }: { status: ApplicationStatus }) {
   const good = status.startsWith("interview") || status === "offer";
   return <span className={`pill ${good ? "on" : ""}`}>{label(status)}</span>;
+}
+
+const BLANK = {
+  company: "",
+  role_title: "",
+  url: "",
+  status: "applied" as ApplicationStatus,
+  notes: "",
+};
+
+// An application sent without generating anything here: the row, and optionally the PDF that
+// went with it. The file input is the platform's — nothing about picking a file needs a
+// dialog plugin when the bytes are what the backend wants.
+function TrackForm({
+  onSaved,
+  onError,
+}: {
+  onSaved: () => void;
+  onError: (e: unknown) => void;
+}) {
+  const [form, setForm] = useState(BLANK);
+  const [pdf, setPdf] = useState<number[] | null>(null);
+  const [busy, setBusy] = useState(false);
+  const fileInput = useRef<HTMLInputElement>(null);
+
+  async function save() {
+    setBusy(true);
+    try {
+      await library.trackApplication({
+        company: form.company.trim() || null,
+        role_title: form.role_title.trim() || null,
+        url: form.url.trim() || null,
+        status: form.status,
+        notes: form.notes.trim() || null,
+        pdf,
+      });
+      setForm(BLANK);
+      setPdf(null);
+      if (fileInput.current) fileInput.current.value = "";
+      onSaved();
+    } catch (e) {
+      onError(e);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <details className="card">
+      <summary>Track an application I already sent</summary>
+      <div className="col" style={{ marginTop: 12 }}>
+        <div className="grid-4">
+          <div>
+            <span className="field-label">Company</span>
+            <input
+              value={form.company}
+              onChange={(e) => setForm({ ...form, company: e.target.value })}
+            />
+          </div>
+          <div>
+            <span className="field-label">Role</span>
+            <input
+              value={form.role_title}
+              onChange={(e) => setForm({ ...form, role_title: e.target.value })}
+            />
+          </div>
+          <div>
+            <span className="field-label">Posting link</span>
+            <input
+              placeholder="https://"
+              value={form.url}
+              onChange={(e) => setForm({ ...form, url: e.target.value })}
+            />
+          </div>
+          <div>
+            <span className="field-label">Status</span>
+            <select
+              value={form.status}
+              onChange={(e) =>
+                setForm({ ...form, status: e.target.value as ApplicationStatus })
+              }
+            >
+              {STATUSES.map((s) => (
+                <option key={s} value={s}>
+                  {label(s)}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        <div>
+          <span className="field-label">Resume sent (PDF)</span>
+          <input
+            ref={fileInput}
+            type="file"
+            accept="application/pdf"
+            onChange={async (e) => {
+              const file = e.target.files?.[0];
+              setPdf(file ? Array.from(new Uint8Array(await file.arrayBuffer())) : null);
+            }}
+          />
+        </div>
+
+        <div>
+          <span className="field-label">Notes</span>
+          <textarea
+            rows={2}
+            value={form.notes}
+            onChange={(e) => setForm({ ...form, notes: e.target.value })}
+          />
+        </div>
+
+        <div className="row">
+          <button onClick={save} disabled={busy || !form.company.trim()}>
+            {busy ? "Saving…" : "Track it"}
+          </button>
+        </div>
+      </div>
+    </details>
+  );
 }
 
 function day(iso: string | null) {
@@ -83,9 +204,11 @@ export default function LibraryTab({ active }: { active: boolean }) {
       {error && <div className="error">{error}</div>}
       {stats && <div className="card">{<StackedBar stats={stats} />}</div>}
 
+      <TrackForm onSaved={load} onError={(e) => setError(errorMessage(e))} />
+
       {rows.length === 0 ? (
         <div className="empty">
-          Nothing here yet. Generate a resume and save it to start tracking.
+          Nothing here yet. Generate a resume and save it, or track one you already sent.
         </div>
       ) : (
         <table className="apps">
@@ -197,15 +320,23 @@ export default function LibraryTab({ active }: { active: boolean }) {
 
           {open.resume && (
             <div className="muted" style={{ fontSize: 12 }}>
-              {open.resume.page_count} page · {open.resume.model} · prompts{" "}
-              {open.resume.prompt_version}
+              {open.resume.model === "uploaded" ? (
+                "uploaded PDF — nothing here generated it"
+              ) : (
+                <>
+                  {open.resume.page_count} page · {open.resume.model} · prompts{" "}
+                  {open.resume.prompt_version}
+                </>
+              )}
             </div>
           )}
 
-          <div>
-            <span className="field-label">Job description</span>
-            <div className="job-text">{open.job_text}</div>
-          </div>
+          {open.job_text && (
+            <div>
+              <span className="field-label">Job description</span>
+              <div className="job-text">{open.job_text}</div>
+            </div>
+          )}
 
           <button className="danger" onClick={() => remove(open.id)}>
             Delete this application

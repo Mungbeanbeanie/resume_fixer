@@ -45,10 +45,11 @@ pub async fn upsert(pool: &PgPool, input: &ExperienceInput) -> Result<Experience
     .await?)
 }
 
-/// Deletes the experience and, by cascade, its roles and bullets.
+/// Deletes the experience and, by cascade, its roles, its bullets, and the provenance rows
+/// citing them.
 ///
-/// Rejects the delete when a bullet underneath it is cited by a rendered resume —
-/// `resume_bullets` holds `ON DELETE RESTRICT` so provenance cannot be orphaned.
+/// A resume that printed one of those bullets keeps its own `tex_source` and its PDF: what
+/// was sent is a matter of record whatever the vault does afterwards.
 pub async fn delete(pool: &PgPool, id: Uuid) -> Result<()> {
     let n = sqlx::query("DELETE FROM experiences WHERE id = $1")
         .bind(id)

@@ -30,6 +30,11 @@ pub async fn upsert(pool: &PgPool, input: &BulletInput) -> Result<Bullet> {
     .await?)
 }
 
+/// Deletes a bullet and the provenance rows citing it.
+///
+/// A saved resume that printed it is untouched — `resumes.tex_source` and the stored PDF are
+/// what was sent, and a vault the user cannot tidy is worse than provenance that stops at
+/// the line it was written for.
 pub async fn delete(pool: &PgPool, id: Uuid) -> Result<()> {
     let n = sqlx::query("DELETE FROM bullets WHERE id = $1")
         .bind(id)

@@ -12,7 +12,7 @@ pub struct SkillIndex {
     by_key: HashMap<String, String>,
     /// canonical slug -> display name
     names: HashMap<String, String>,
-    /// display names of the skills marked to print, in `skills` table order
+    /// display names of the skills marked to print, in the order they were checked
     always: Vec<String>,
 }
 

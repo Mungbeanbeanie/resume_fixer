@@ -13,7 +13,7 @@ use crate::render::{tectonic, tex};
 use crate::state::{AppState, BaseDraft};
 use uuid::Uuid;
 
-/// The skills marked to print, in `skills` table order.
+/// The skills marked to print, in the order they were checked (`db::skill::list`).
 ///
 /// The whole table would print rows the user never used, so the checkbox in the Skills
 /// section decides. Tagging a new skill turns it on (`db::skill::upsert_by_name`), which

@@ -260,11 +260,7 @@ pub async fn commit(state: &AppState, draft_id: Uuid, applied: bool) -> Result<U
         tokio::fs::create_dir_all(dir).await?;
     }
     tokio::fs::copy(&draft.pdf_path, &dest).await?;
-    sqlx::query("UPDATE resumes SET pdf_path = $2 WHERE id = $1")
-        .bind(resume.id)
-        .bind(dest.to_string_lossy().to_string())
-        .execute(&state.pool)
-        .await?;
+    db::resume::set_pdf_path(&state.pool, resume.id, &dest.to_string_lossy()).await?;
     let _ = tokio::fs::remove_dir_all(state.draft_dir(draft_id)).await;
 
     Ok(application.id)

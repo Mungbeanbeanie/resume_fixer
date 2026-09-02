@@ -145,6 +145,13 @@ not touch `sqlx` types. Repositories do not call the model.
   label is `experiences.link_text`, falling back to the URL without its scheme. A URL with
   no scheme gets `https://` so the PDF link is not dead. Only the Projects section does
   this; everywhere else the slot is dates.
+- **Checked skills print in the order they were checked.** `skills.listed_at` is stamped
+  when the box is ticked and cleared when it is unticked, and `db::skill::list` orders by
+  it — so unticking and re-ticking is how a skill is moved to the end of the line.
+- **An application can be tracked without generating anything.** `services::library::track`
+  writes the row and stores an uploaded PDF as that application's current resume, with
+  `model = "uploaded"`, no TeX source, and no provenance rows — nothing was selected from
+  the vault, so there is nothing to attribute.
 - **Skills are tagged on both bullets and experiences.** Bullet tags drive precision,
   experience tags catch relevance the bullet text does not spell out. Both feed retrieval.
 - **Skill matching is by `slug` plus `aliases[]`**, always case-folded. Never match on

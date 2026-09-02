@@ -67,6 +67,7 @@ pub fn run() {
             commands::base::base_list,
             commands::base::base_delete,
             commands::base::base_export,
+            commands::library::library_track_application,
             commands::library::library_list_applications,
             commands::library::library_get_application,
             commands::library::library_set_status,

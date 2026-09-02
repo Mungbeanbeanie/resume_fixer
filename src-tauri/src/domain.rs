@@ -292,6 +292,21 @@ pub struct ApplicationDetail {
     pub history: Vec<StatusChange>,
 }
 
+/// A submission the user made without generating a resume here, with the PDF they sent.
+///
+/// The posting is whatever they typed in `notes`: there is nothing to tailor to and nothing
+/// to parse, so the tracker asks for what a tracker needs and no more.
+#[derive(Debug, Clone, Deserialize)]
+pub struct ManualApplication {
+    pub company: Option<String>,
+    pub role_title: Option<String>,
+    pub url: Option<String>,
+    pub status: ApplicationStatus,
+    pub notes: Option<String>,
+    /// The bytes of the PDF that was sent, if the user attached it.
+    pub pdf: Option<Vec<u8>>,
+}
+
 #[derive(Debug, Clone, Deserialize)]
 pub struct ApplicationPatch {
     pub company: Option<String>,

@@ -67,6 +67,16 @@ pub async fn insert(
     Ok(resume)
 }
 
+/// Points a stored resume at its PDF, once the file is where it will stay.
+pub async fn set_pdf_path(pool: &PgPool, id: Uuid, path: &str) -> Result<()> {
+    sqlx::query("UPDATE resumes SET pdf_path = $2 WHERE id = $1")
+        .bind(id)
+        .bind(path)
+        .execute(pool)
+        .await?;
+    Ok(())
+}
+
 pub async fn current_for(pool: &PgPool, application_id: Uuid) -> Result<Option<Resume>> {
     Ok(sqlx::query_as::<_, Resume>(&format!(
         "SELECT {COLS} FROM resumes WHERE application_id = $1 AND is_current"

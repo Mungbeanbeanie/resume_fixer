@@ -148,7 +148,7 @@ async fn deleting_an_experience_cascades_to_roles_and_bullets() {
 }
 
 #[tokio::test]
-async fn a_bullet_cited_by_a_resume_cannot_be_deleted() {
+async fn deleting_a_cited_bullet_takes_its_provenance_row_and_leaves_the_resume() {
     let pool = db_test!(pool);
     let (experience_id, _, bullet_id) =
         seed_tree(&pool, &format!("Provenance {}", Uuid::new_v4())).await;
@@ -173,7 +173,7 @@ async fn a_bullet_cited_by_a_resume_cannot_be_deleted() {
         was_reworded: false,
         org_name: "Acme".into(),
     }];
-    db::resume::insert(
+    let resume = db::resume::insert(
         &pool,
         application.id,
         "\\documentclass{article}",
@@ -187,8 +187,24 @@ async fn a_bullet_cited_by_a_resume_cannot_be_deleted() {
     .await
     .expect("resume inserts");
 
-    // ON DELETE RESTRICT: provenance outranks tidying up the vault.
-    assert!(db::bullet::delete(&pool, bullet_id).await.is_err());
+    // The vault is the user's to tidy: the bullet goes, and the provenance row with it.
+    db::bullet::delete(&pool, bullet_id)
+        .await
+        .expect("a printed bullet still deletes");
+    let provenance: i64 =
+        sqlx::query_scalar("SELECT count(*) FROM resume_bullets WHERE bullet_id = $1")
+            .bind(bullet_id)
+            .fetch_one(&pool)
+            .await
+            .unwrap();
+    assert_eq!(provenance, 0);
+
+    // What was sent is a matter of record whatever the vault does afterwards.
+    let stored = db::resume::get(&pool, resume.id)
+        .await
+        .unwrap()
+        .expect("the resume survives its bullet");
+    assert_eq!(stored.tex_source, "\\documentclass{article}");
 
     db::application::delete(&pool, application.id)
         .await
@@ -315,6 +331,47 @@ async fn listing_a_skill_by_hand_toggles_without_losing_the_row() {
         !retagged.always_list,
         "tagging again does not undo a box the user unchecked"
     );
+}
+
+/// The base resume prints `db::skill::list` order, so this is the printed skills line.
+#[tokio::test]
+async fn checked_skills_list_in_the_order_they_were_checked() {
+    let pool = db_test!(pool);
+    let tag = Uuid::new_v4().simple().to_string();
+    // Reverse-alphabetical on purpose: the old ordering would pass this by accident.
+    let names = [
+        format!("Zig {tag}"),
+        format!("Yacc {tag}"),
+        format!("Xslt {tag}"),
+    ];
+
+    let mut ticked = Vec::new();
+    for name in &names {
+        ticked.push(db::skill::add_listed(&pool, name).await.unwrap().id);
+    }
+    async fn mine(pool: &PgPool, tag: &str) -> Vec<Uuid> {
+        db::skill::list(pool)
+            .await
+            .unwrap()
+            .into_iter()
+            .filter(|s| s.name.ends_with(tag))
+            .map(|s| s.id)
+            .collect()
+    }
+    assert_eq!(
+        mine(&pool, &tag).await,
+        ticked,
+        "checked order, not alphabetical"
+    );
+
+    // Unchecking and checking again is how a skill is moved: it goes to the end.
+    db::skill::set_always_list(&pool, ticked[0], false)
+        .await
+        .unwrap();
+    db::skill::set_always_list(&pool, ticked[0], true)
+        .await
+        .unwrap();
+    assert_eq!(mine(&pool, &tag).await, [ticked[1], ticked[2], ticked[0]]);
 }
 
 #[tokio::test]
