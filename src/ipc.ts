@@ -76,6 +76,8 @@ export const generate = {
   discard: (draftId: string) => invoke<void>("generate_discard", { draftId }),
   revise: (draftId: string, edits: BulletEdit[]) =>
     invoke<GenerationResult>("generate_revise", { draftId, edits }),
+  rename: (draftId: string, company: string | null, roleTitle: string | null) =>
+    invoke<void>("generate_rename", { draftId, company, roleTitle }),
   commit: (draftId: string, applied: boolean) =>
     invoke<string>("generate_commit", { draftId, applied }),
   exportPdf: (resumeId: string, destPath: string) =>

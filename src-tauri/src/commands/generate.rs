@@ -44,6 +44,16 @@ pub async fn generate_revise(
 }
 
 #[tauri::command]
+pub async fn generate_rename(
+    state: State<'_, AppState>,
+    draft_id: Uuid,
+    company: Option<String>,
+    role_title: Option<String>,
+) -> Result<()> {
+    services::generate::rename(&state, draft_id, company, role_title).await
+}
+
+#[tauri::command]
 pub async fn generate_commit(
     state: State<'_, AppState>,
     draft_id: Uuid,

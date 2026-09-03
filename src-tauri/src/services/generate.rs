@@ -228,6 +228,27 @@ pub async fn revise(
     })
 }
 
+/// Renames the posting a draft is tailored to.
+///
+/// The company and role come from the model's read of the posting, which is a guess and is
+/// often blank. What the user types here is what the library row and the exported filename
+/// carry. Blank means unnamed, not an empty title. Rejects an unknown draft.
+pub async fn rename(
+    state: &AppState,
+    draft_id: Uuid,
+    company: Option<String>,
+    role_title: Option<String>,
+) -> Result<()> {
+    let named = |v: Option<String>| v.map(|s| s.trim().to_string()).filter(|s| !s.is_empty());
+    let mut drafts = state.drafts.lock().await;
+    let draft = drafts
+        .get_mut(&draft_id)
+        .ok_or_else(|| AppError::NotFound("draft".into()))?;
+    draft.company = named(company);
+    draft.role_title = named(role_title);
+    Ok(())
+}
+
 /// Writes a draft to the library: the application, the resume, and one provenance row
 /// per printed line.
 pub async fn commit(state: &AppState, draft_id: Uuid, applied: bool) -> Result<Uuid> {

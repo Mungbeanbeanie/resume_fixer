@@ -54,6 +54,7 @@ pub fn run() {
             commands::generate::generate_from_text,
             commands::generate::generate_discard,
             commands::generate::generate_revise,
+            commands::generate::generate_rename,
             commands::generate::generate_commit,
             commands::generate::generate_export_pdf,
             commands::generate::generate_export_draft,

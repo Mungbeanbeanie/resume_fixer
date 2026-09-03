@@ -151,8 +151,29 @@ export default function GenerateTab({
     return () => window.removeEventListener("keydown", onKey);
   });
 
+  // Typing shows immediately; the draft is told on blur, so `revise` and `commit` read the
+  // name the user gave rather than the model's guess at it.
+  function retitle(patch: { company?: string; role_title?: string }) {
+    if (state.result) {
+      dispatch({ type: "set", patch: { result: { ...state.result, ...patch } } });
+    }
+  }
+
+  async function saveTitle() {
+    const r = state.result;
+    if (!r) return;
+    try {
+      await generate.rename(r.draft_id, r.company, r.role_title);
+    } catch (e) {
+      dispatch({ type: "failed", error: errorMessage(e) });
+    }
+  }
+
   async function save(applied: boolean) {
     if (!state.result) return;
+    // Clicking a button blurs the field first, but the rename it fires is not awaited —
+    // commit takes the draft away, so send the name before asking for it.
+    await saveTitle();
     dispatch({ type: "started", phase: "saving" });
     try {
       await generate.commit(state.result.draft_id, applied);
@@ -186,9 +207,21 @@ export default function GenerateTab({
     return (
       <div className="col">
         <div className="row">
-          <div>
-            <h2>{r.company ?? "Untitled posting"}</h2>
-            <span className="muted">{r.role_title ?? "role not stated"}</span>
+          <div className="draft-title">
+            <input
+              aria-label="Company"
+              placeholder="Untitled posting"
+              value={r.company ?? ""}
+              onChange={(e) => retitle({ company: e.target.value })}
+              onBlur={saveTitle}
+            />
+            <input
+              aria-label="Role"
+              placeholder="role not stated"
+              value={r.role_title ?? ""}
+              onChange={(e) => retitle({ role_title: e.target.value })}
+              onBlur={saveTitle}
+            />
           </div>
           <span className="spacer" style={{ flex: 1 }} />
           <button onClick={download}>Download</button>
