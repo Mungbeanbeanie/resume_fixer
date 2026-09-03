@@ -189,6 +189,35 @@ export default function LibraryTab({ active }: { active: boolean }) {
     }
   }
 
+  // The name fields are uncontrolled: the input holds the text while it is being typed, so
+  // nothing re-renders per keystroke. A blur that changed nothing writes nothing, and a
+  // blank snaps back — the patch's COALESCE leaves a null field alone, so a name can be
+  // changed but not cleared.
+  async function rename(
+    field: "company" | "role_title",
+    e: React.FocusEvent<HTMLInputElement>,
+  ) {
+    const stored = (open && open[field]) ?? "";
+    const value = e.target.value.trim();
+    if (!open || !value || value === stored) {
+      e.target.value = stored;
+      return;
+    }
+    const id = open.id;
+    try {
+      await library.updateApplication(id, {
+        company: null,
+        role_title: null,
+        notes: null,
+        [field]: value,
+      });
+      await load();
+      setOpen(await library.getApplication(id));
+    } catch (err) {
+      setError(errorMessage(err));
+    }
+  }
+
   async function remove(id: string) {
     try {
       await library.deleteApplication(id);
@@ -279,13 +308,27 @@ export default function LibraryTab({ active }: { active: boolean }) {
       {open && (
         <aside className="panel col">
           <div className="row">
-            <h2>{open.company ?? "Untitled"}</h2>
+            <div className="title-edit">
+              <input
+                key={`${open.id}-company`}
+                aria-label="Company"
+                placeholder="Untitled"
+                defaultValue={open.company ?? ""}
+                onBlur={(e) => rename("company", e)}
+              />
+              <input
+                key={`${open.id}-role`}
+                aria-label="Role"
+                placeholder="role not stated"
+                defaultValue={open.role_title ?? ""}
+                onBlur={(e) => rename("role_title", e)}
+              />
+            </div>
             <span style={{ flex: 1 }} />
             <button className="quiet" onClick={() => setOpen(null)}>
               close
             </button>
           </div>
-          <div className="muted">{open.role_title ?? "role not stated"}</div>
 
           <div className="row">
             <select

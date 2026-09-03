@@ -207,7 +207,7 @@ export default function GenerateTab({
     return (
       <div className="col">
         <div className="row">
-          <div className="draft-title">
+          <div className="title-edit">
             <input
               aria-label="Company"
               placeholder="Untitled posting"

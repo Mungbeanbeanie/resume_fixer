@@ -51,6 +51,40 @@
   margin: 0 auto;
 }
 
+/* A company and role heading that is editable in place: it reads as a heading until it is
+   hovered or focused, where it shows the field it has been all along. Sized to the text so
+   the buttons beside it keep their space. */
+.title-edit {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.title-edit input {
+  /* `field-sizing` grows the box with the name; the width is what holds without it. */
+  width: 24ch;
+  field-sizing: content;
+  min-width: 14ch;
+  max-width: 44ch;
+  padding: 2px 6px;
+  margin-left: -6px;
+  background: transparent;
+  border-color: transparent;
+}
+
+.title-edit input:hover:not(:focus) {
+  border-color: var(--border);
+}
+
+.title-edit input:first-child {
+  font-size: 20px;
+  font-weight: 600;
+}
+
+.title-edit input:last-child {
+  color: var(--muted);
+}
+
 /* ── Generate ─────────────────────────────────────────────── */
 
 .generate-empty {
@@ -73,39 +107,6 @@
   text-align: center;
   color: var(--muted);
   margin-top: 24px;
-}
-
-/* The posting's name reads as a heading until it is hovered or focused, where it shows the
-   field it has been all along. Sized to the text so the button row keeps its space. */
-.draft-title {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-}
-
-.draft-title input {
-  /* `field-sizing` grows the box with the name; the width is what holds without it. */
-  width: 24ch;
-  field-sizing: content;
-  min-width: 14ch;
-  max-width: 44ch;
-  padding: 2px 6px;
-  margin-left: -6px;
-  background: transparent;
-  border-color: transparent;
-}
-
-.draft-title input:hover:not(:focus) {
-  border-color: var(--border);
-}
-
-.draft-title input:first-child {
-  font-size: 20px;
-  font-weight: 600;
-}
-
-.draft-title input:last-child {
-  color: var(--muted);
 }
 
 .preview {
