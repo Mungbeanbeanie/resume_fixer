@@ -8,11 +8,19 @@ import { useVault } from "./vaultContext";
 export default function SkillsCard() {
   const { report } = useVault();
   const [skills, setSkills] = useState<Skill[]>([]);
+  // The checked ones in the order they print, which the alphabetical list above cannot show.
+  const [printOrder, setPrintOrder] = useState<string[]>([]);
   const [name, setName] = useState("");
 
+  // Alphabetical, always. The backend hands these back in the order they print on the base
+  // resume, which is the right order for a resume and the wrong one for a picker: two
+  // hundred checkboxes are only findable by name, and a list that re-sorts under the cursor
+  // when a box is ticked moves the next box out from under it.
   const load = useCallback(async () => {
     try {
-      setSkills(await vault.listSkills());
+      const rows = await vault.listSkills();
+      setPrintOrder(rows.filter((s) => s.always_list).map((s) => s.name));
+      setSkills([...rows].sort((a, b) => a.name.localeCompare(b.name)));
     } catch (e) {
       report(e);
     }
@@ -76,9 +84,18 @@ export default function SkillsCard() {
             + add
           </button>
         </div>
-        <span className="muted" style={{ fontSize: 12 }}>
+        {printOrder.length > 0 && (
+          <div style={{ marginTop: 12 }}>
+            <span className="field-label">Prints in this order</span>
+            <span className="muted" style={{ fontSize: 12 }}>
+              {printOrder.join(", ")}
+            </span>
+          </div>
+        )}
+        <span className="muted" style={{ fontSize: 12, marginTop: 8 }}>
           Unchecking never deletes a skill — it stays available for tagging and job-posting
-          matching.
+          matching. Re-checking one sends it to the end of the line above, which is how a
+          skill is moved.
         </span>
       </div>
     </details>
