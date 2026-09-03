@@ -157,19 +157,29 @@ async fn the_generated_resume_matches_the_reference_and_fits_one_page() {
         .expect("template renders");
 
     // The preamble is copied from the reference; every line of it must still be there.
-    // The template only adds `\ifdefined` guards around the two pdfTeX-only lines.
+    // The template only adds `\ifdefined` guards around the two pdfTeX-only lines, and
+    // closes up `\resumeItem`'s space before `\vspace`.
     let reference_preamble = REFERENCE.split("\\begin{document}").next().unwrap();
     let generated_preamble = generated.split("\\begin{document}").next().unwrap();
     for line in reference_preamble
         .lines()
         .map(str::trim)
-        .filter(|l| !l.is_empty())
+        .filter(|l| !l.is_empty() && *l != "{#1 \\vspace{-2pt}}")
     {
         assert!(
             generated_preamble.contains(line),
             "the generated preamble dropped: {line}"
         );
     }
+
+    // `\vspace` is a `\vadjust` in horizontal mode, so the space in front of it is not the
+    // last item on the list when `\par` strips trailing glue — it survives into the line.
+    // A bullet ending flush at the right margin then breaks after that space and prints a
+    // blank line before the next one.
+    assert!(
+        generated_preamble.contains("{#1\\vspace{-2pt}}"),
+        "the space before \\vspace is back: full-width bullets will print a blank line"
+    );
 
     // Every bullet the reference prints must survive into the generated document.
     for item in REFERENCE.match_indices("\\resumeItem{").map(|(i, _)| i) {
