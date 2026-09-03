@@ -50,10 +50,12 @@ impl SkillIndex {
     }
 
     /// The skills line for a tailored resume: what the posting asked for and the vault
-    /// knows, in the posting's order, then everything the user marked to always print.
+    /// knows, in the posting's order, then everything the user marked to always print,
+    /// truncated to one printed line.
     ///
     /// The posting's priorities lead because a recruiter reads left to right, but a skill
-    /// the user checked prints whether or not this posting mentioned it.
+    /// the user checked prints whether or not this posting mentioned it. Names past the
+    /// budget are dropped from the tail, so what the posting asked for survives.
     pub fn line<'a>(&self, wanted: impl IntoIterator<Item = &'a str>) -> Vec<String> {
         let mut out: Vec<String> = self
             .resolve_all(wanted)
@@ -65,6 +67,7 @@ impl SkillIndex {
                 out.push(name.clone());
             }
         }
+        out.truncate(fits_one_line(&out));
         out
     }
 
@@ -80,6 +83,29 @@ impl SkillIndex {
         }
         out
     }
+}
+
+/// Characters that reach the right margin on the skills line.
+///
+/// The item box is 542pt wide, less the 0.15in list indent and the bold "Skills:" label,
+/// leaving about 495pt; `\small` text in this font measures ~4.8pt per character on the
+/// mixed-case, uppercase-heavy names skills tend to be. Names past that would wrap, and a
+/// tailored resume spends its second line on evidence, not on a longer keyword list.
+const LINE_BUDGET: usize = 100;
+
+/// How many leading names fit on one printed line, counting the ", " between them.
+fn fits_one_line(names: &[String]) -> usize {
+    let mut width = 0;
+    let mut kept = 0;
+    for name in names {
+        let next = width + name.chars().count() + if kept == 0 { 0 } else { 2 };
+        if next > LINE_BUDGET {
+            break;
+        }
+        width = next;
+        kept += 1;
+    }
+    kept
 }
 
 #[cfg(test)]
@@ -123,6 +149,30 @@ mod tests {
             idx.line(["Postgres", "Python", "Go"]),
             ["SQL", "Python", "Rust"]
         );
+    }
+
+    #[test]
+    fn the_line_stops_at_one_printed_line() {
+        // Nine names fill the budget exactly; the tenth would spill.
+        let names = [
+            "JavaScript",
+            "TypeScript",
+            "PostgreSQL",
+            "Kubernetes",
+            "Tensorflow",
+            "Cloudflare",
+            "Playwright",
+            "Serverless",
+            "Rust",
+            "Java",
+        ];
+        let all = test_skills(&names.map(|n| (n, &[] as &[&str])));
+        let idx = SkillIndex::new(&all);
+        let line = idx.line(names);
+        assert_eq!(line.join(", ").chars().count(), 100);
+        // The tail is what goes: the posting's leading priorities all print.
+        assert_eq!(line.first().map(String::as_str), Some("JavaScript"));
+        assert!(!line.contains(&"Java".to_string()));
     }
 
     #[test]
