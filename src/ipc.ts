@@ -100,6 +100,12 @@ export const base = {
   remove: (id: string) => invoke<void>("base_delete", { id }),
   exportPdf: (id: string, filename: string) =>
     invoke<string>("base_export", { id, filename }),
+  // The Build tab: the same document, restricted to hand-picked entries. Its preview is a
+  // separate slot from the base one, so the two tabs never recompile each other.
+  buildRender: (experienceIds: string[], templateId?: string | null) =>
+    invoke<BasePreview>("build_render", { experienceIds, templateId: templateId ?? null }),
+  buildRevise: (edits: BulletEdit[]) => invoke<BasePreview>("build_revise", { edits }),
+  buildSave: (name: string) => invoke<BaseResume>("build_save", { name }),
 };
 
 export const library = {
@@ -114,4 +120,6 @@ export const library = {
     invoke<void>("library_update_application", { id, patch }),
   deleteApplication: (id: string) => invoke<void>("library_delete_application", { id }),
   stats: () => invoke<StatusStats>("library_stats"),
+  /** Keyed by the furthest stage each application reached, not by where it sits now. */
+  funnel: () => invoke<StatusStats>("library_funnel"),
 };

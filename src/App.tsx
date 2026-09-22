@@ -2,11 +2,12 @@ import { useCallback, useEffect, useState } from "react";
 import { health } from "./ipc";
 import type { HealthReport } from "./types";
 import BaseTab from "./tabs/base/BaseTab";
+import BuildTab from "./tabs/build/BuildTab";
 import GenerateTab from "./tabs/generate/GenerateTab";
 import LibraryTab from "./tabs/library/LibraryTab";
 import VaultTab from "./tabs/vault/VaultTab";
 
-const TABS = ["Generate", "Library", "Vault", "Base"] as const;
+const TABS = ["Generate", "Library", "Vault", "Base", "Build"] as const;
 type Tab = (typeof TABS)[number];
 
 function HealthStrip({ report }: { report: HealthReport | null }) {
@@ -38,11 +39,11 @@ export default function App() {
 
   useEffect(refreshHealth, [refreshHealth]);
 
-  // ⌘1–4 switch tabs. Generate owns ⌘Enter itself.
+  // ⌘1–5 switch tabs. Generate owns ⌘Enter itself.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (!e.metaKey && !e.ctrlKey) return;
-      const i = ["1", "2", "3", "4"].indexOf(e.key);
+      const i = ["1", "2", "3", "4", "5"].indexOf(e.key);
       if (i >= 0) {
         e.preventDefault();
         setTab(TABS[i]);
@@ -82,6 +83,9 @@ export default function App() {
           </div>
           <div hidden={tab !== "Base"}>
             <BaseTab />
+          </div>
+          <div hidden={tab !== "Build"}>
+            <BuildTab />
           </div>
         </div>
       </main>

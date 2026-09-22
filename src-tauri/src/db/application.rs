@@ -164,3 +164,28 @@ pub async fn stats(pool: &PgPool) -> Result<StatusStats> {
     .into_iter()
     .collect())
 }
+
+/// How many applications got as far as each stage and no further.
+///
+/// `stats` counts where applications are now, which cannot answer how far they got:
+/// `rejected` and `withdrawn` are reachable from any stage, so an interview that ended in a
+/// rejection is indistinguishable from an application nobody answered. The history table
+/// holds every transition, so the furthest stage each application ever reached is the last
+/// non-terminal status it recorded — Postgres orders an enum by declaration order, and
+/// `application_status` is declared in pipeline order.
+///
+/// A funnel reads this cumulatively: everyone who reached `offer` also reached `applied`.
+pub async fn furthest(pool: &PgPool) -> Result<StatusStats> {
+    Ok(sqlx::query_as::<_, (ApplicationStatus, i64)>(
+        "SELECT furthest, count(*) FROM (
+             SELECT DISTINCT ON (application_id) application_id, status AS furthest
+             FROM application_status_history
+             WHERE status <> 'rejected' AND status <> 'withdrawn'
+             ORDER BY application_id, status DESC
+         ) f GROUP BY furthest",
+    )
+    .fetch_all(pool)
+    .await?
+    .into_iter()
+    .collect())
+}

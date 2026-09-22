@@ -11,6 +11,8 @@ use crate::error::{AppError, Result};
 use crate::pipeline::{fit, select};
 use crate::render::{tectonic, tex};
 use crate::state::{AppState, BaseDraft};
+use std::path::PathBuf;
+use tokio::sync::Mutex;
 use uuid::Uuid;
 
 /// The skills marked to print, in the order they were checked (`db::skill::list`).
@@ -26,10 +28,21 @@ fn vault_skills(all: &[Skill]) -> Vec<String> {
         .collect()
 }
 
-/// Renders every active vault entry with `template_id`, or the active template.
+/// Renders vault entries with `template_id`, or the active template.
 ///
-/// Rejects an empty vault: a resume with no bullets is a header and a page of white.
-pub async fn render(state: &AppState, template_id: Option<Uuid>) -> Result<BasePreview> {
+/// `picked` names the experiences to print, or `None` for every active one — the base
+/// resume. A hand-picked set is the user's own shortlist, so every entry on it is pinned:
+/// the fit loop thins their bullets to reach one page and reports a second page honestly
+/// rather than dropping one they chose by name.
+///
+/// Rejects an empty result: a resume with no bullets is a header and a page of white.
+pub async fn render(
+    state: &AppState,
+    template_id: Option<Uuid>,
+    picked: Option<&[Uuid]>,
+    into: &Mutex<Option<BaseDraft>>,
+    dir: PathBuf,
+) -> Result<BasePreview> {
     let template = match template_id {
         Some(id) => db::template::get(&state.pool, id).await?,
         None => db::template::get_active(&state.pool).await?,
@@ -40,20 +53,43 @@ pub async fn render(state: &AppState, template_id: Option<Uuid>) -> Result<BaseP
     let profile = db::profile::get(&state.pool).await?;
     let all_skills = db::skill::list(&state.pool).await?;
 
+    // Education and certifications ride along unpicked: the fit loop never retires a degree,
+    // and a certification is one line with no bullets to thin, so neither earns a checkbox.
+    let vault: Vec<ExperienceDetail> = match picked {
+        Some(ids) => vault
+            .into_iter()
+            .filter(|d| {
+                ids.contains(&d.experience.id)
+                    || matches!(
+                        d.experience.kind,
+                        ExperienceKind::Education | ExperienceKind::Certification
+                    )
+            })
+            .collect(),
+        None => vault,
+    };
+
     let mut plan = select::everything(&vault, profile, vault_skills(&all_skills));
+    if picked.is_some() {
+        plan.pin_all();
+    }
+    // After pinning, so a picked entry the template cannot print is one the UI can name.
     plan.prune_for(&template.source);
     plan.cap_bullets();
     if plan.bullet_count() == 0 {
-        return Err(AppError::Invalid(
-            "the vault is empty — add an experience before building a base resume".into(),
-        ));
+        return Err(AppError::Invalid(match picked {
+            Some(_) => "nothing to print — the entries you picked have no active bullets".into(),
+            None => {
+                "the vault is empty — add an experience before building a base resume".to_string()
+            }
+        }));
     }
 
     let fitted = fit::fit_to_one_page(
         &state.config.render.tectonic_path,
         &template.source,
         &mut plan,
-        &state.base_preview_dir(),
+        &dir,
     )
     .await?;
 
@@ -65,12 +101,13 @@ pub async fn render(state: &AppState, template_id: Option<Uuid>) -> Result<BaseP
         used_bullets: plan.used_bullets(),
         retired: fitted.retired,
     };
-    *state.base_preview.lock().await = Some(BaseDraft {
+    *into.lock().await = Some(BaseDraft {
         template_id: template.id,
         template_name: template.name,
         plan,
         tex: fitted.tex,
         pdf_path: fitted.pdf_path,
+        dir,
         page_count: fitted.page_count,
         bullet_count: preview.bullet_count,
     });
@@ -81,11 +118,15 @@ pub async fn render(state: &AppState, template_id: Option<Uuid>) -> Result<BaseP
 ///
 /// Same rule as a generated draft: the edit belongs to this document, not to the vault, and
 /// no model runs. Rejects an edit set that would leave nothing to print.
-pub async fn revise(state: &AppState, edits: Vec<BulletEdit>) -> Result<BasePreview> {
+pub async fn revise(
+    state: &AppState,
+    edits: Vec<BulletEdit>,
+    from: &Mutex<Option<BaseDraft>>,
+) -> Result<BasePreview> {
     // An edit may name a bullet this preview never printed; the vault is where its text lives.
     let vault = db::experience::list_details(&state.pool).await?;
 
-    let mut held = state.base_preview.lock().await;
+    let mut held = from.lock().await;
     let draft = held
         .as_mut()
         .ok_or_else(|| AppError::NotFound("base resume preview".into()))?;
@@ -102,12 +143,8 @@ pub async fn revise(state: &AppState, edits: Vec<BulletEdit>) -> Result<BasePrev
     }
 
     let tex_source = tex::render(&template.source, &draft.plan.to_render_input())?;
-    let compiled = tectonic::compile(
-        &state.config.render.tectonic_path,
-        &tex_source,
-        &state.base_preview_dir(),
-    )
-    .await?;
+    let compiled =
+        tectonic::compile(&state.config.render.tectonic_path, &tex_source, &draft.dir).await?;
 
     draft.tex = tex_source;
     draft.pdf_path = compiled.pdf_path;
@@ -120,14 +157,20 @@ pub async fn revise(state: &AppState, edits: Vec<BulletEdit>) -> Result<BasePrev
         page_count: draft.page_count,
         bullet_count: draft.bullet_count,
         used_bullets: draft.plan.used_bullets(),
-        retired: Vec::new(),
+        // What is still off the page, not an empty list: an edit does not un-retire
+        // anything, so the notice has to survive the first Apply.
+        retired: draft.plan.retired_names(),
     })
 }
 
 /// Names the previewed resume and keeps it. Rejects saving before a preview exists —
 /// there would be no PDF to copy.
-pub async fn save(state: &AppState, name: String) -> Result<BaseResume> {
-    let draft = state.base_preview.lock().await;
+pub async fn save(
+    state: &AppState,
+    name: String,
+    from: &Mutex<Option<BaseDraft>>,
+) -> Result<BaseResume> {
+    let draft = from.lock().await;
     let draft = draft
         .as_ref()
         .ok_or_else(|| AppError::NotFound("base resume preview".into()))?;

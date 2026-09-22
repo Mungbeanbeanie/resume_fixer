@@ -40,6 +40,9 @@ pub struct BaseDraft {
     pub plan: ResumePlan,
     pub tex: String,
     pub pdf_path: PathBuf,
+    /// Where this preview compiles. Base and Build have one each, so a recompile of either
+    /// leaves the other's PDF where its tab is still pointing.
+    pub dir: PathBuf,
     pub page_count: i32,
     pub bullet_count: i32,
 }
@@ -51,6 +54,9 @@ pub struct AppState {
     pub data_dir: PathBuf,
     pub drafts: Mutex<HashMap<Uuid, Draft>>,
     pub base_preview: Mutex<Option<BaseDraft>>,
+    /// The Build tab's preview. Its own slot because every tab stays mounted: one shared
+    /// slot would mean an Apply in Base recompiling whatever Build rendered last.
+    pub build_preview: Mutex<Option<BaseDraft>>,
 }
 
 impl AppState {
@@ -65,6 +71,7 @@ impl AppState {
             config,
             drafts: Mutex::new(HashMap::new()),
             base_preview: Mutex::new(None),
+            build_preview: Mutex::new(None),
         })
     }
 
@@ -75,6 +82,13 @@ impl AppState {
     /// One reused directory: only the newest base preview is ever of interest.
     pub fn base_preview_dir(&self) -> PathBuf {
         self.data_dir.join("base").join("preview")
+    }
+
+    /// The Build tab compiles elsewhere. Both tabs stay mounted with a PDF on screen, and
+    /// every compile overwrites `preview.pdf` — one directory would show each tab the
+    /// other's document.
+    pub fn build_preview_dir(&self) -> PathBuf {
+        self.data_dir.join("base").join("build")
     }
 
     pub fn base_path(&self, base_id: Uuid) -> PathBuf {

@@ -443,6 +443,17 @@ impl ResumePlan {
         self.retired.iter().map(|r| r.section.org.clone()).collect()
     }
 
+    /// Marks every section as one the fit loop may not retire.
+    ///
+    /// A hand-built resume is exactly the entries the user picked, so the loop thins their
+    /// bullets to reach one page and reports an honest second page when it cannot — it never
+    /// drops an entry that was chosen by name.
+    pub fn pin_all(&mut self) {
+        for section in self.all_sections_mut().into_iter().flatten() {
+            section.pinned = true;
+        }
+    }
+
     /// Drops roles left with nothing under them, then sections left with no roles.
     ///
     /// A heading whose bullets all went away prints as a title floating over white space.
@@ -717,6 +728,28 @@ mod tests {
         );
         assert_eq!(plan.education.len(), 1, "education is never retired");
         assert_eq!(plan.experience[0].org, "Pinned Co");
+    }
+
+    /// What the Build tab rests on: after `pin_all` the fit loop has nothing left to retire,
+    /// so it thins bullets to reach one page and reports a second page rather than dropping
+    /// an entry the user picked by name.
+    #[test]
+    fn pin_all_leaves_the_fit_loop_nothing_to_retire() {
+        let mut plan = ResumePlan {
+            experience: vec![
+                scored("Strong Co", 2.4, false),
+                scored("Weak Co", 0.2, false),
+            ],
+            projects: vec![scored("A Side Project", 0.5, false)],
+            ..Default::default()
+        };
+
+        plan.pin_all();
+
+        assert_eq!(plan.retire_weakest(), None);
+        assert_eq!(plan.experience.len(), 2);
+        assert_eq!(plan.projects.len(), 1);
+        assert!(plan.retired_names().is_empty());
     }
 
     #[test]

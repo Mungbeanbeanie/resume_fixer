@@ -98,9 +98,15 @@ async fn an_edited_preview_is_what_save_writes() {
     .await
     .expect("bullet inserts");
 
-    let preview = services::base::render(&state, None)
-        .await
-        .expect("the base resume compiles");
+    let preview = services::base::render(
+        &state,
+        None,
+        None,
+        &state.base_preview,
+        state.base_preview_dir(),
+    )
+    .await
+    .expect("the base resume compiles");
     assert!(
         preview
             .used_bullets
@@ -124,7 +130,7 @@ async fn an_edited_preview_is_what_save_writes() {
         })
         .collect();
 
-    let revised = services::base::revise(&state, edits)
+    let revised = services::base::revise(&state, edits, &state.base_preview)
         .await
         .expect("the edit recompiles");
     assert!(
@@ -135,9 +141,13 @@ async fn an_edited_preview_is_what_save_writes() {
         "the edit did not reach the preview"
     );
 
-    let saved = services::base::save(&state, format!("Edited {}", Uuid::new_v4()))
-        .await
-        .expect("save writes the resume");
+    let saved = services::base::save(
+        &state,
+        format!("Edited {}", Uuid::new_v4()),
+        &state.base_preview,
+    )
+    .await
+    .expect("save writes the resume");
     let tex: String = sqlx::query_scalar("SELECT tex_source FROM base_resumes WHERE id = $1")
         .bind(saved.id)
         .fetch_one(&state.pool)
@@ -154,4 +164,109 @@ async fn an_edited_preview_is_what_save_writes() {
     db::experience::delete(&state.pool, experience.id)
         .await
         .unwrap();
+}
+
+/// The Build tab prints the entries the user ticked and nothing else, and keeps every one of
+/// them — an entry chosen by hand is never retired to reach one page.
+#[tokio::test]
+#[ignore = "needs Postgres and Tectonic"]
+async fn a_hand_picked_resume_holds_exactly_what_was_picked() {
+    let Some(state) = state().await else {
+        eprintln!("skipped: TEST_DATABASE_URL is not set");
+        return;
+    };
+
+    // Two entries, only one of which is picked.
+    let mut made = Vec::new();
+    for n in 0..2 {
+        let experience = db::experience::upsert(
+            &state.pool,
+            &ExperienceInput {
+                id: None,
+                kind: ExperienceKind::Work,
+                org_name: format!("Picked Or Not {n} {}", Uuid::new_v4()),
+                location: Some("Remote".into()),
+                url: None,
+                link_text: None,
+                tech_line: None,
+                display_order: n,
+                is_active: true,
+                is_pinned: false,
+            },
+        )
+        .await
+        .expect("experience inserts");
+        let role = db::role::upsert(
+            &state.pool,
+            &RoleInput {
+                id: None,
+                experience_id: experience.id,
+                title: "Intern".into(),
+                location: None,
+                start_date: NaiveDate::from_ymd_opt(2026, 6, 1),
+                end_date: None,
+                date_override: None,
+                gpa: None,
+                display_order: 0,
+                is_active: true,
+            },
+        )
+        .await
+        .expect("role inserts");
+        db::bullet::upsert(
+            &state.pool,
+            &BulletInput {
+                id: None,
+                role_id: role.id,
+                text: format!("Shipped the thing that entry {n} is known for."),
+                display_order: 0,
+                is_active: true,
+            },
+        )
+        .await
+        .expect("bullet inserts");
+        made.push(experience);
+    }
+
+    let preview = services::base::render(
+        &state,
+        None,
+        Some(&[made[0].id]),
+        &state.build_preview,
+        state.build_preview_dir(),
+    )
+    .await
+    .expect("the hand-picked resume compiles");
+
+    assert!(
+        preview
+            .used_bullets
+            .iter()
+            .any(|b| b.org_name == made[0].org_name),
+        "the entry that was picked is not on the page"
+    );
+    assert!(
+        !preview
+            .used_bullets
+            .iter()
+            .any(|b| b.org_name == made[1].org_name),
+        "an entry nobody picked reached the page"
+    );
+    assert!(
+        preview.retired.is_empty(),
+        "a hand-picked entry was retired: {:?}",
+        preview.retired
+    );
+
+    // The base preview is a separate slot, so this never touched it.
+    assert!(
+        state.base_preview.lock().await.is_none(),
+        "Build overwrote the Base tab's preview"
+    );
+
+    for experience in made {
+        db::experience::delete(&state.pool, experience.id)
+            .await
+            .unwrap();
+    }
 }

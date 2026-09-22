@@ -139,10 +139,16 @@ pub fn check(
     }
 
     let source_words = words(source);
-    for (i, word) in words(rewrite).into_iter().enumerate() {
-        // The opening word is capitalized by grammar, not because it names anything —
-        // a rewrite is allowed to open with a different verb.
-        let opening = i == 0;
+    let rewrite_words = words(rewrite);
+    for (i, word) in rewrite_words.iter().enumerate() {
+        // A word is capitalized by grammar at the start of any sentence, not because it
+        // names anything, so a rewrite may open any of its sentences with a different verb.
+        // `words` keeps a trailing full stop and strips "!" and "?", so "." is the whole
+        // test and the other two stay conservatively closed. What this admits is a proper
+        // noun the skill index does not know, placed after a full stop; a technology is
+        // still caught, because `grounded` checks a known skill against the source whatever
+        // its position.
+        let opening = i == 0 || rewrite_words[i - 1].ends_with('.');
         if grounded(word, opening, source, &source_words, bullet_slugs, index) {
             continue;
         }
@@ -154,7 +160,7 @@ pub fn check(
         {
             continue;
         }
-        return Err(Rejection::NewEntity(word.to_string()));
+        return Err(Rejection::NewEntity((*word).to_string()));
     }
     Ok(())
 }
@@ -217,6 +223,18 @@ mod tests {
             "Built lock-free UART pipeline with ring buffers sustaining 460 kbps continuous transfer.",
             true,
             "legitimate: opening verb may change",
+        ),
+        (
+            "Built a ring-buffer UART data pipeline sustaining 460 kbps of continuous transfer.",
+            "Built a UART pipeline on ring buffers. Sustained 460 kbps of continuous transfer.",
+            true,
+            "legitimate: a second sentence may open with its own verb",
+        ),
+        (
+            "Deployed a REST API on AWS EC2 with Docker and Nginx.",
+            "Deployed a REST API on AWS EC2 with Docker. Kubernetes runs it.",
+            false,
+            "a sentence break does not launder a technology the source never named",
         ),
         (
             "Improved request latency by 25%.",

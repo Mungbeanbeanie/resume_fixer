@@ -137,6 +137,9 @@ pub async fn run(
                     match grounding::check(&candidate.text, rewrite, slugs, index) {
                         Ok(()) => (rewrite.to_string(), true),
                         Err(reason) => {
+                            // The variant, not the sentence: which rule fires most is the
+                            // only way to tell a prompt problem from a checker problem.
+                            tracing::warn!("rewrite rejected for bullet {}: {reason:?}", picked.id);
                             rejected.push(RejectedRewrite {
                                 bullet_id: picked.id,
                                 attempted: rewrite.to_string(),
@@ -265,6 +268,18 @@ fn assemble(
         // Activities are often a title and a date with nothing under them; an empty one is
         // still worth printing, unlike a job with no bullets.
         let keep_empty = is_education || detail.experience.kind == ExperienceKind::Activity;
+        // "Always print this" has to mean the entry reaches the page, not only that the fit
+        // loop may not retire it once there. An experience nothing was picked from yields no
+        // bullets, no roles, and is dropped below — before `pinned` is ever read. Only when
+        // nothing under it was picked: an entry already printing one of its roles is on the
+        // page, and its other roles simply were not chosen for this posting. An entry with
+        // no active bullets still cannot print, because there is no stored line to print.
+        let nothing_picked = !detail
+            .roles
+            .iter()
+            .flat_map(|r| r.bullets.iter())
+            .any(|b| picked.contains_key(&b.bullet.id));
+        let fill_unpicked = is_education || (detail.experience.is_pinned && nothing_picked);
         let mut roles = Vec::new();
         for role in &detail.roles {
             if !role.role.is_active {
@@ -284,8 +299,9 @@ fn assemble(
                     })
                 })
                 .collect();
-            // Coursework is not job-tailored; if the model ignored it, print it anyway.
-            if is_education && bullets.is_empty() {
+            // Coursework is not job-tailored; if the model ignored it, print it anyway. So
+            // is a pinned entry the posting had no use for — the user asked for it by name.
+            if fill_unpicked && bullets.is_empty() {
                 bullets = role
                     .bullets
                     .iter()
@@ -382,6 +398,143 @@ mod tests {
             experience_skills: vec![],
             score,
         }
+    }
+
+    /// A vault entry with one role per `(title, lines)` pair, every bullet active.
+    fn detail(org: &str, pinned: bool, roles: &[(&str, &[&str])]) -> ExperienceDetail {
+        let experience_id = Uuid::new_v4();
+        ExperienceDetail {
+            experience: Experience {
+                id: experience_id,
+                kind: ExperienceKind::Work,
+                org_name: org.into(),
+                location: None,
+                url: None,
+                link_text: None,
+                tech_line: None,
+                display_order: 0,
+                is_active: true,
+                is_pinned: pinned,
+            },
+            skills: vec![],
+            roles: roles
+                .iter()
+                .map(|(title, lines)| {
+                    let role_id = Uuid::new_v4();
+                    RoleDetail {
+                        role: Role {
+                            id: role_id,
+                            experience_id,
+                            title: (*title).into(),
+                            location: None,
+                            start_date: None,
+                            end_date: None,
+                            date_override: Some("Summer 2026".into()),
+                            gpa: None,
+                            display_order: 0,
+                            is_active: true,
+                        },
+                        bullets: lines
+                            .iter()
+                            .map(|text| BulletDetail {
+                                bullet: Bullet {
+                                    id: Uuid::new_v4(),
+                                    role_id,
+                                    text: (*text).into(),
+                                    display_order: 0,
+                                    is_active: true,
+                                },
+                                skills: vec![],
+                                variants: vec![],
+                            })
+                            .collect(),
+                    }
+                })
+                .collect(),
+        }
+    }
+
+    /// "Always print this" is a promise the Vault makes on the experience card. Before, it
+    /// only stopped the fit loop retiring an entry that had already reached the page, so a
+    /// posting the entry did not match dropped it before `pinned` was ever read.
+    #[test]
+    fn a_pinned_experience_prints_even_when_nothing_picked_it() {
+        let vault = vec![
+            detail(
+                "Rajant Health",
+                false,
+                &[("Intern", &["a line nobody picked"])],
+            ),
+            detail(
+                "Ice Hockey Club",
+                true,
+                &[("Treasurer", &["Ran the books for a 40-player roster."])],
+            ),
+        ];
+
+        let plan = assemble(vec![], &vault, None, vec![]);
+
+        assert_eq!(
+            plan.experience.len(),
+            1,
+            "only the pinned entry earns a page nothing was picked for"
+        );
+        assert_eq!(plan.experience[0].org, "Ice Hockey Club");
+        assert!(
+            plan.experience[0].pinned,
+            "and the fit loop may not retire it"
+        );
+        let used = plan.used_bullets();
+        assert_eq!(used.len(), 1);
+        assert_eq!(
+            used[0].rendered_text, used[0].source_text,
+            "a filled-in line is the stored wording, so nothing claims a rewrite"
+        );
+        assert!(!used[0].was_reworded);
+    }
+
+    /// The pin fills an entry the posting passed over whole. It must not also drag in the
+    /// stints of an entry that is already printing — Rajant Health has two, and only one of
+    /// them was chosen.
+    #[test]
+    fn a_pinned_entry_already_on_the_page_keeps_only_the_role_that_was_picked() {
+        let vault = vec![detail(
+            "Rajant Health",
+            true,
+            &[
+                (
+                    "Computer Engineering Intern",
+                    &["the line the model picked"],
+                ),
+                (
+                    "Software Engineering Intern",
+                    &["a line from the other stint"],
+                ),
+            ],
+        )];
+        let picked = vault[0].roles[0].bullets[0].bullet.id;
+
+        let plan = assemble(
+            vec![(
+                picked,
+                Chosen {
+                    text: "the line the model picked".into(),
+                    was_reworded: false,
+                    score: 3.0,
+                },
+            )],
+            &vault,
+            None,
+            vec![],
+        );
+
+        assert_eq!(plan.experience.len(), 1);
+        assert_eq!(
+            plan.experience[0].roles.len(),
+            1,
+            "the other stint was not chosen for this posting"
+        );
+        assert_eq!(plan.used_bullets().len(), 1);
     }
 
     /// The failure this exists to prevent: a page of entries carrying one line each, because

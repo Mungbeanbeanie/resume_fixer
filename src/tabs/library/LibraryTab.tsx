@@ -7,7 +7,7 @@ import type {
   ApplicationSummary,
   StatusStats,
 } from "../../types";
-import StackedBar from "./StackedBar";
+import Funnel from "./Funnel";
 
 const STATUSES: ApplicationStatus[] = [
   "saved",
@@ -159,14 +159,20 @@ function day(iso: string | null) {
 export default function LibraryTab({ active }: { active: boolean }) {
   const [rows, setRows] = useState<ApplicationSummary[]>([]);
   const [stats, setStats] = useState<StatusStats | null>(null);
+  const [furthest, setFurthest] = useState<StatusStats | null>(null);
   const [open, setOpen] = useState<ApplicationDetail | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     try {
-      const [list, s] = await Promise.all([library.listApplications(), library.stats()]);
+      const [list, s, f] = await Promise.all([
+        library.listApplications(),
+        library.stats(),
+        library.funnel(),
+      ]);
       setRows(list);
       setStats(s);
+      setFurthest(f);
       setError(null);
     } catch (e) {
       setError(errorMessage(e));
@@ -231,7 +237,11 @@ export default function LibraryTab({ active }: { active: boolean }) {
   return (
     <div className="col">
       {error && <div className="error">{error}</div>}
-      {stats && <div className="card">{<StackedBar stats={stats} />}</div>}
+      {stats && furthest && (
+        <div className="card">
+          <Funnel furthest={furthest} stats={stats} />
+        </div>
+      )}
 
       <TrackForm onSaved={load} onError={(e) => setError(errorMessage(e))} />
 

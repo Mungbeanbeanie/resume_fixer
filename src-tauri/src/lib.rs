@@ -68,6 +68,9 @@ pub fn run() {
             commands::base::base_list,
             commands::base::base_delete,
             commands::base::base_export,
+            commands::base::build_render,
+            commands::base::build_revise,
+            commands::base::build_save,
             commands::library::library_track_application,
             commands::library::library_list_applications,
             commands::library::library_get_application,
@@ -75,6 +78,7 @@ pub fn run() {
             commands::library::library_update_application,
             commands::library::library_delete_application,
             commands::library::library_stats,
+            commands::library::library_funnel,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

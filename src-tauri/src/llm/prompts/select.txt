@@ -9,11 +9,19 @@ any fact: no new number, technology, employer, scope, tool, or outcome. If the s
 not say it, it does not exist.
 
 Bullets follow: action verb -> what was built -> technology -> measurable outcome.
-  Weak:   "Worked on backend services for banking applications."
-  Strong: "Designed Java-based RESTful services supporting high-volume banking
-           transactions, improving request latency by 25%."
-The strong version adds no facts the weak one lacked. It surfaces them. That is the entire
-license you have to reword.
+  Weak:   "Worked on backend services in Java for banking applications, improving request
+           latency by 25%."
+  Strong: "Designed Java-based services for banking applications, improving request latency
+           by 25%."
+The strong version names Java and 25% because the weak one already did. It surfaces facts
+and tightens the wording; it adds nothing. That is the entire license you have to reword.
+
+Every rewrite is checked before it can print, and one that fails is thrown away in favour of
+the stored wording:
+- Length between 0.7x and 1.25x the source, counted in characters. A rewrite that doubles
+  its source dropped nothing and added everything, and is discarded unread.
+- No capitalized word and no number the source does not already contain. Adding "Java",
+  "AWS" or "25%" to a bullet that never said it is the most common way a rewrite is lost.
 
 If a bullet's fit is unclear, return it with "rewrite": null. Returning the original is
 always safe; embellishing is not.

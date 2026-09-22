@@ -59,3 +59,9 @@ pub async fn library_delete_application(state: State<'_, AppState>, id: Uuid) ->
 pub async fn library_stats(state: State<'_, AppState>) -> Result<StatusStats> {
     db::application::stats(&state.pool).await
 }
+
+/// Counts keyed by the furthest stage each application reached, for the funnel.
+#[tauri::command]
+pub async fn library_funnel(state: State<'_, AppState>) -> Result<StatusStats> {
+    db::application::furthest(&state.pool).await
+}

@@ -224,7 +224,9 @@ pub async fn revise(
         used_bullets: draft.plan.used_bullets(),
         rejected: draft.rejected.clone(),
         dropped_for_fit: 0,
-        retired: Vec::new(),
+        // What is still off the page, not an empty list: an edit does not un-retire
+        // anything, so the notice has to survive the first Apply.
+        retired: draft.plan.retired_names(),
     })
 }
 

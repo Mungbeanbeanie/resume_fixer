@@ -25,6 +25,24 @@ function spares(all: ExperienceDetail[], printed: UsedBullet[]): Spare[] {
   });
 }
 
+/// Pinned entries that did not reach this document after all.
+///
+/// A pin means "always print this", so the remaining way to miss is a template with no
+/// section for the entry — which is how a pinned Activity vanishes under Jake's. Matches on
+/// bullet ids, not org names, because two entries may share a name. An entry with no active
+/// bullet is skipped: it prints as a heading alone, which leaves no bullet here to see it by,
+/// and guessing would name entries that are on the page.
+function missingPins(all: ExperienceDetail[], printed: UsedBullet[]): string[] {
+  const used = new Set(printed.map((b) => b.bullet_id));
+  return all
+    .filter((e) => e.is_active && e.is_pinned)
+    .filter((e) => {
+      const bullets = e.roles.flatMap((r) => r.bullets.filter((b) => b.is_active));
+      return bullets.length > 0 && !bullets.some((b) => used.has(b.id));
+    })
+    .map((e) => e.org_name);
+}
+
 // The lines a resume prints, editable. Edits apply to the document in front of you — the
 // vault keeps the wording it had, so trimming one resume never rewrites your master copy.
 // Shared by the generated draft and the base resume preview.
@@ -42,6 +60,7 @@ export default function DraftBullets({
 }) {
   const [edits, setEdits] = useState<Record<string, { text: string; keep: boolean }>>({});
   const [available, setAvailable] = useState<Spare[]>([]);
+  const [unprinted, setUnprinted] = useState<string[]>([]);
   const [adds, setAdds] = useState<Set<string>>(new Set());
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -58,7 +77,11 @@ export default function DraftBullets({
     let live = true;
     vault
       .listExperiences()
-      .then((all) => live && setAvailable(spares(all, bullets)))
+      .then((all) => {
+        if (!live) return;
+        setAvailable(spares(all, bullets));
+        setUnprinted(missingPins(all, bullets));
+      })
       .catch(() => live && setAvailable([]));
     return () => {
       live = false;
@@ -128,9 +151,16 @@ export default function DraftBullets({
         {edited > 0 && `, ${edited} edited`}
         {dropped > 0 && `, ${dropped} dropped to fit`}
         {available.length > 0 && `, ${available.length} more available`}
+        {unprinted.length > 0 && `, ${unprinted.length} “always print” missing`}
       </summary>
 
       <div className="col" style={{ gap: 10, marginTop: 10 }}>
+        {unprinted.length > 0 && (
+          <div className="muted">
+            Marked “always print” but not on this resume: {unprinted.join(", ")}. This
+            template has no section for it — build with one that does.
+          </div>
+        )}
         {bullets.map((b) => {
           const e = stateOf(b);
           return (

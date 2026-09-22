@@ -45,7 +45,8 @@ pub async fn base_render(
     state: State<'_, AppState>,
     template_id: Option<Uuid>,
 ) -> Result<BasePreview> {
-    services::base::render(&state, template_id).await
+    let dir = state.base_preview_dir();
+    services::base::render(&state, template_id, None, &state.base_preview, dir).await
 }
 
 #[tauri::command]
@@ -53,12 +54,45 @@ pub async fn base_revise(
     state: State<'_, AppState>,
     edits: Vec<BulletEdit>,
 ) -> Result<BasePreview> {
-    services::base::revise(&state, edits).await
+    services::base::revise(&state, edits, &state.base_preview).await
 }
 
 #[tauri::command]
 pub async fn base_save(state: State<'_, AppState>, name: String) -> Result<BaseResume> {
-    services::base::save(&state, name).await
+    services::base::save(&state, name, &state.base_preview).await
+}
+
+/// Renders only the experiences the user picked, every one of them pinned.
+#[tauri::command]
+pub async fn build_render(
+    state: State<'_, AppState>,
+    template_id: Option<Uuid>,
+    experience_ids: Vec<Uuid>,
+) -> Result<BasePreview> {
+    let dir = state.build_preview_dir();
+    services::base::render(
+        &state,
+        template_id,
+        Some(&experience_ids),
+        &state.build_preview,
+        dir,
+    )
+    .await
+}
+
+#[tauri::command]
+pub async fn build_revise(
+    state: State<'_, AppState>,
+    edits: Vec<BulletEdit>,
+) -> Result<BasePreview> {
+    services::base::revise(&state, edits, &state.build_preview).await
+}
+
+/// A hand-built resume is kept as a base resume: no posting, so there is no application row
+/// to attribute it to and nothing was selected from the vault by a model.
+#[tauri::command]
+pub async fn build_save(state: State<'_, AppState>, name: String) -> Result<BaseResume> {
+    services::base::save(&state, name, &state.build_preview).await
 }
 
 #[tauri::command]
