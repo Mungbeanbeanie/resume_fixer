@@ -38,15 +38,18 @@ These are not preferences. Violating one is a bug regardless of test status.
 ## Stack
 
 - **Shell:** Tauri v2 (Rust)
-- **Frontend:** React 18 + TypeScript + Vite, plain CSS with custom properties
+- **Frontend:** React 18 + TypeScript + Vite, plain CSS with custom properties. Caprasimo and
+  Figtree ship as `@fontsource` packages rather than a Google Fonts `@import`: the app has to
+  look right with the network off. Icons are inline SVG in `src/icons.tsx`, not `lucide-react`.
 - **Database:** local Postgres via `sqlx` (runtime queries, not macros — no `DATABASE_URL`
   needed at compile time)
 - **Inference:** Ollama at `localhost:11434`, model `ornith:35b`
 - **PDF:** Tectonic invoked as an external binary
 - **Templating:** Tera, over the user's Jake's-Resume `.tex`
 
-State is React Context + `useReducer`. Charts are hand-rolled SVG. There is no Redux, no
-react-query, no Tailwind, no charting library, and adding one needs a reason in the PR.
+State is React Context + `useReducer`. The Library funnel is hand-rolled — four divs and a
+width percentage. There is no Redux, no react-query, no Tailwind, no charting library, and
+adding one needs a reason in the PR.
 
 ## Commands
 

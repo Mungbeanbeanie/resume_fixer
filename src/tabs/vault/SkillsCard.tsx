@@ -53,15 +53,15 @@ export default function SkillsCard() {
   }
 
   return (
-    <details className="experience">
+    <details className="experience" open>
       <summary>
         <strong>Skills</strong>
-        <span className="muted" style={{ fontSize: 12 }}>
+        <span className="muted" style={{ fontSize: 13 }}>
           {printed} of {skills.length} print on the base resume
         </span>
       </summary>
       <div className="body">
-        <div className="tags" style={{ marginTop: 12 }}>
+        <div className="tags">
           {skills.map((s) => (
             <label key={s.id} className={`pill skill-toggle${s.always_list ? " on" : ""}`}>
               <input
@@ -73,26 +73,24 @@ export default function SkillsCard() {
             </label>
           ))}
         </div>
-        <div className="row" style={{ marginTop: 12 }}>
+        <div className="row" style={{ gap: "var(--space-2)" }}>
           <input
             placeholder="A skill you have but never wrote a bullet about"
             value={name}
             onChange={(e) => setName(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && add()}
           />
-          <button className="quiet" onClick={add} disabled={!name.trim()}>
+          <button className="quiet" onClick={add} disabled={!name.trim()} style={{ flex: "none" }}>
             + add
           </button>
         </div>
         {printOrder.length > 0 && (
-          <div style={{ marginTop: 12 }}>
+          <div style={{ fontSize: 13 }}>
             <span className="field-label">Prints in this order</span>
-            <span className="muted" style={{ fontSize: 12 }}>
-              {printOrder.join(", ")}
-            </span>
+            {printOrder.join(", ")}
           </div>
         )}
-        <span className="muted" style={{ fontSize: 12, marginTop: 8 }}>
+        <span className="muted" style={{ fontSize: 12 }}>
           Unchecking never deletes a skill — it stays available for tagging and job-posting
           matching. Re-checking one sends it to the end of the line above, which is how a
           skill is moved.

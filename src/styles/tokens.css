@@ -1,165 +1,180 @@
+/* Organic: a warm cream-and-sand ground, terracotta accent, sage second accent.
+   Caprasimo carries headings and real action buttons; Figtree carries everything else.
+   Both are bundled by main.tsx — the app is local-first, so nothing is fetched to render. */
+
 :root {
-  --bg: #fcfcfa;
-  --surface: #ffffff;
-  --border: #e8e6e1;
-  --text: #1a1a18;
-  --muted: #6b6b66;
-  --accent: #2e6f5e;
-  --accent-soft: #eaf2ef;
-  --danger: #9b3b2f;
+  --color-bg: #f5ead8;
+  --color-surface: #ebddc5;
+  --color-text: #201e1d;
+  --color-accent: #c67139;
+  --color-accent-2: #7a8a5e;
+  --color-divider: color-mix(in srgb, #201e1d 16%, transparent);
 
-  --applied: #b9b5ab;
-  --oa: #7f8f72;
-  --interview: #2e6f5e;
-  --offer: #3f7f4f;
-  --rejected: #c8c4ba;
+  --color-neutral-100: #f9f4ed; --color-neutral-200: #eee7db; --color-neutral-300: #dcd3c4;
+  --color-neutral-400: #c0b6a5; --color-neutral-500: #a19786; --color-neutral-600: #82796a;
+  --color-neutral-700: #645c50; --color-neutral-800: #474238; --color-neutral-900: #2e2b25;
 
-  --radius: 6px;
-  --gap: 12px;
-  --font: -apple-system, BlinkMacSystemFont, ui-sans-serif, "Segoe UI", Roboto, sans-serif;
+  --color-accent-100: #fff2eb; --color-accent-200: #ffe1d0; --color-accent-300: #ffc6a5;
+  --color-accent-400: #f6a06b; --color-accent-500: #d67f48; --color-accent-600: #b2622d;
+  --color-accent-700: #8c491a; --color-accent-800: #643312; --color-accent-900: #402310;
+
+  --color-accent-2-100: #f0fae1; --color-accent-2-200: #e1eecc; --color-accent-2-300: #ccdbb2;
+  --color-accent-2-400: #aebf92; --color-accent-2-500: #8fa073; --color-accent-2-600: #728157;
+  --color-accent-2-700: #56633f; --color-accent-2-800: #3d472b; --color-accent-2-900: #272e1b;
+
+  --font-heading: "Caprasimo", system-ui, sans-serif;
+  --font-body: "Figtree", system-ui, sans-serif;
+
+  /* 1.1× density is baked into the scale rather than applied at call sites. */
+  --space-1: 4.4px; --space-2: 8.8px; --space-3: 13.2px;
+  --space-4: 17.6px; --space-6: 26.4px; --space-8: 35.2px;
+
+  --radius-sm: 8px; --radius-md: 16px; --radius-lg: 28px; --radius-xl: 32px;
+
+  --shadow-md: 0 3px 10px color-mix(in srgb, #2e2b25 16%, transparent);
+  --shadow-lg: 0 12px 32px color-mix(in srgb, #2e2b25 22%, transparent);
+
+  /* The funnel stages, named for what they are so `Funnel` reads as stages, not colours. */
+  --applied: var(--color-neutral-400);
+  --oa: var(--color-accent-2-400);
+  --interview: var(--color-accent-2-600);
+  --offer: var(--color-accent);
+
+  --gap: var(--space-3);
   --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
 }
 
-* {
-  box-sizing: border-box;
-}
-
-html,
-body,
-#root {
-  height: 100%;
-}
+*, *::before, *::after { box-sizing: border-box; }
+html, body, #root { height: 100%; }
 
 body {
   margin: 0;
-  background: var(--bg);
-  color: var(--text);
-  font-family: var(--font);
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-family: var(--font-body);
   font-size: 14px;
-  line-height: 1.5;
+  line-height: 1.55;
   -webkit-font-smoothing: antialiased;
 }
 
-h1,
-h2,
-h3 {
-  font-weight: 600;
+h1, h2, h3, h4 {
+  font-family: var(--font-heading);
+  font-weight: 400;
+  line-height: 1.12;
+  letter-spacing: -0.015em;
   margin: 0;
 }
 
+h2 { font-size: 32px; }
+h3 { font-size: 22px; }
+
+:focus { outline: none; }
+:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; }
+::selection { background: color-mix(in srgb, var(--color-accent) 30%, transparent); }
+
+/* Default <button> is the secondary style; .primary fills, .quiet is link-weight.
+   A button that does the real work wears the display face — quiet ones stay in body text. */
 button {
-  font: inherit;
-  color: inherit;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 6px 12px;
-  cursor: pointer;
-}
-
-button:hover:not(:disabled) {
-  border-color: var(--accent);
-  color: var(--accent);
-}
-
-button:disabled {
-  opacity: 0.45;
-  cursor: default;
-}
-
-button.primary {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: #fff;
-}
-
-button.primary:hover:not(:disabled) {
-  background: #275d4f;
-  color: #fff;
-}
-
-button.quiet {
-  border-color: transparent;
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  font-family: var(--font-heading); font-weight: 400; font-size: 14px; line-height: 1.2;
+  color: var(--color-text);
   background: transparent;
-  color: var(--muted);
-  padding: 4px 6px;
-}
-
-button.danger:hover:not(:disabled) {
-  border-color: var(--danger);
-  color: var(--danger);
-}
-
-/* Checkboxes and radios keep their native box: the full-width text-field styling below
-   would stretch one across its whole line. */
-input:not([type="checkbox"]):not([type="radio"]),
-textarea,
-select {
-  font: inherit;
-  color: inherit;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 7px 10px;
-  width: 100%;
-}
-
-input:focus,
-textarea:focus,
-select:focus {
-  outline: none;
-  border-color: var(--accent);
-}
-
-textarea {
-  resize: vertical;
-  font-family: inherit;
-}
-
-a {
-  color: var(--accent);
-}
-
-.muted {
-  color: var(--muted);
-}
-
-.row {
-  display: flex;
-  align-items: center;
-  gap: var(--gap);
-}
-
-.col {
-  display: flex;
-  flex-direction: column;
-  gap: var(--gap);
-}
-
-.card {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 16px;
-}
-
-.pill {
-  display: inline-block;
-  border: 1px solid var(--border);
+  border: 1px solid var(--color-divider);
   border-radius: 999px;
-  padding: 1px 9px;
-  font-size: 12px;
-  color: var(--muted);
+  padding: var(--space-2) 16px;
+  min-height: 36px;
+  cursor: pointer;
   white-space: nowrap;
 }
 
-.pill.on {
-  border-color: var(--accent);
-  color: var(--accent);
-  background: var(--accent-soft);
+button:hover:not(:disabled) { background: color-mix(in srgb, var(--color-text) 7%, transparent); }
+button:active:not(:disabled) { background: color-mix(in srgb, var(--color-text) 14%, transparent); }
+button:disabled { opacity: 0.45; cursor: not-allowed; }
+
+button.primary { background: var(--color-accent); border-color: transparent; color: var(--color-bg); }
+button.primary:hover:not(:disabled) { background: var(--color-accent-600); color: var(--color-bg); }
+button.primary:active:not(:disabled) { background: var(--color-accent-700); }
+
+button.quiet {
+  font-family: var(--font-body); font-size: 13px;
+  border-color: transparent; background: transparent;
+  color: var(--color-accent-700);
+  padding: 6px 12px; min-height: 32px;
+}
+button.quiet:hover:not(:disabled) { background: color-mix(in srgb, var(--color-accent) 10%, transparent); }
+button.quiet:active:not(:disabled) { background: color-mix(in srgb, var(--color-accent) 18%, transparent); }
+/* Remove / delete: still quiet, but not competing with the action beside it. */
+button.quiet.subtle { color: var(--color-neutral-700); }
+
+/* Checkboxes, radios and file pickers keep their native box: the full-width field styling
+   below would stretch one across its whole line. */
+input:not([type="checkbox"]):not([type="radio"]):not([type="file"]),
+textarea,
+select {
+  width: 100%;
+  min-height: 36px;
+  font: inherit; font-size: 14px;
+  color: var(--color-text);
+  caret-color: var(--color-accent);
+  background: var(--color-surface);
+  border: 1px solid var(--color-divider);
+  border-radius: 999px;
+  padding: 6px 14px;
 }
 
-.pill.off {
-  border-color: var(--danger);
-  color: var(--danger);
+textarea { border-radius: var(--radius-md); padding: 10px 14px; resize: vertical; font-family: inherit; }
+
+input:hover:not(:focus), textarea:hover:not(:focus), select:hover:not(:focus) {
+  border-color: color-mix(in srgb, var(--color-text) 45%, transparent);
 }
+input:focus, textarea:focus, select:focus { outline: none; border-color: var(--color-accent); }
+input[type="file"] { font: inherit; font-size: 13px; }
+
+/* A field inside a sand container lifts to the lighter neutral so it still reads as a field.
+   A quiet disclosure has no fill, so its fields stay on sand or they vanish into the page… */
+:where(.card, .experience, .panel, .disclosure:not(.quiet)) :is(input:not([type="checkbox"]):not([type="radio"]):not([type="file"]), textarea, select) {
+  background: var(--color-neutral-100);
+}
+/* …and inside a role block, which is itself neutral-100, it drops back to the page ground. */
+:where(.role) :is(input:not([type="checkbox"]):not([type="radio"]):not([type="file"]), textarea, select) {
+  background: var(--color-bg);
+}
+
+a { color: var(--color-accent-700); text-underline-offset: 3px; }
+a:hover { color: var(--color-accent-800); }
+
+.muted { color: var(--color-neutral-700); }
+.row { display: flex; align-items: center; gap: var(--gap); }
+.col { display: flex; flex-direction: column; gap: var(--gap); }
+
+.card {
+  background: var(--color-surface);
+  border: 0;
+  border-radius: var(--radius-lg);
+  padding: var(--space-3) var(--space-4);
+}
+
+.pill {
+  display: inline-flex; align-items: center; gap: 6px;
+  border: 1px solid var(--color-divider);
+  border-radius: 999px;
+  padding: 3px 11px;
+  font-size: 12px;
+  color: var(--color-neutral-800);
+  background: transparent;
+  white-space: nowrap;
+}
+
+.pill.on  { border-color: transparent; background: var(--color-accent-2-100); color: var(--color-accent-2-800); }
+.pill.off { border-color: transparent; background: var(--color-accent-100);   color: var(--color-accent-800); }
+
+/* Only the header pills carry a status dot. */
+.health .pill::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: currentColor; opacity: .75; }
+.health .pill.on::before  { background: var(--color-accent-2-500); opacity: 1; }
+.health .pill.off::before { background: var(--color-accent); opacity: 1; }
+
+/* Status tags: Library statuses, "reworded", "always printed", "hidden". */
+.tag { display: inline-flex; align-items: center; font-size: 11px; letter-spacing: .02em; padding: 3px 10px; border-radius: 999px; white-space: nowrap; }
+.tag.good    { background: var(--color-accent-2-100); color: var(--color-accent-2-800); }
+.tag.active  { background: var(--color-accent-100);   color: var(--color-accent-800); }
+.tag.neutral { background: var(--color-neutral-100);  color: var(--color-neutral-800); }

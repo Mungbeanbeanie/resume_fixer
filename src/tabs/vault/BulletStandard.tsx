@@ -32,21 +32,21 @@ const PAIRS: [string, string][] = [
 
 export default function BulletStandard() {
   return (
-    <details className="disclosure">
+    <details className="disclosure quiet">
       <summary>How to write a strong bullet</summary>
-      <div className="col" style={{ gap: 10, marginTop: 10 }}>
+      <div className="col" style={{ marginTop: "var(--space-3)" }}>
         <span className="muted" style={{ fontSize: 12 }}>
           Action verb → what was built → technology → measurable outcome.
         </span>
         {PAIRS.map(([weak, strong]) => (
-          <div className="grid-2" key={weak}>
-            <div>
-              <span className="field-label">Weak</span>
-              <span className="muted">{weak}</span>
+          <div className="pair" key={weak}>
+            <div className="weak">
+              <span className="eyebrow">Weak</span>
+              {weak}
             </div>
-            <div>
-              <span className="field-label">Strong</span>
-              <span>{strong}</span>
+            <div className="strong">
+              <span className="eyebrow">Strong</span>
+              {strong}
             </div>
           </div>
         ))}

@@ -66,17 +66,17 @@ export default function BulletRow({ bullet }: { bullet: BulletDetail }) {
 
   return (
     <div className="bullet">
-      <div style={{ flex: 1 }}>
+      <div className="col" style={{ flex: 1, gap: 5 }}>
         <textarea value={text} onChange={(e) => setText(e.target.value)} onBlur={saveText} />
         <input
-          style={{ marginTop: 4, fontSize: 12 }}
+          className="tag-input"
           placeholder="skills, comma separated"
           value={tags}
           onChange={(e) => setTags(e.target.value)}
           onBlur={saveTags}
         />
         {suggestions && (
-          <div className="col" style={{ marginTop: 6, gap: 6 }}>
+          <div className="col" style={{ gap: 6 }}>
             {suggestions.length === 0 && (
               <span className="muted">
                 Nothing survived grounding — the wording you have is the honest one.
@@ -94,12 +94,12 @@ export default function BulletRow({ bullet }: { bullet: BulletDetail }) {
           </div>
         )}
       </div>
-      <div className="col" style={{ gap: 4 }}>
+      <div className="actions">
         <button className="quiet" onClick={improve} disabled={thinking}>
           {thinking ? "…" : "Improve"}
         </button>
         <button
-          className="quiet danger"
+          className="quiet subtle"
           onClick={async () => {
             try {
               await vault.deleteBullet(bullet.id);

@@ -5,6 +5,7 @@ import BulletStandard from "./BulletStandard";
 import ExperienceCard from "./ExperienceCard";
 import SkillsCard from "./SkillsCard";
 import { useVault, VaultCtx } from "./vaultContext";
+import { X } from "../../icons";
 
 // The order the vault reads in. Header Info is the profile card and has no kind.
 const SECTIONS: [ExperienceKind, string][] = [
@@ -29,13 +30,13 @@ function ProfileCard({ draft, setDraft, save }: ProfileProps) {
     <details className="experience">
       <summary>
         <strong>{draft.full_name || "Your name"}</strong>
-        <span className="muted" style={{ fontSize: 12 }}>
+        <span className="muted" style={{ fontSize: 13 }}>
           {draft.email ?? "no email"} · {draft.links.length} link
           {draft.links.length === 1 ? "" : "s"}
         </span>
       </summary>
       <div className="body">
-        <div className="grid-4" style={{ marginTop: 12 }}>
+        <div className="grid-4">
           <div>
             <span className="field-label">Full name</span>
             <input
@@ -61,10 +62,10 @@ function ProfileCard({ draft, setDraft, save }: ProfileProps) {
             />
           </div>
         </div>
-        <div className="col" style={{ marginTop: 12, gap: 6 }}>
+        <div className="col" style={{ gap: 6 }}>
           <span className="field-label">Links printed in the header</span>
           {draft.links.map((l, i) => (
-            <div className="row" key={i}>
+            <div className="link-row" key={i}>
               <input
                 placeholder="label"
                 value={l.label}
@@ -86,19 +87,24 @@ function ProfileCard({ draft, setDraft, save }: ProfileProps) {
                 onBlur={() => save(draft)}
               />
               <button
-                className="quiet danger"
+                className="quiet subtle"
+                aria-label={`Remove ${l.label || "link"}`}
                 onClick={() => save({ ...draft, links: draft.links.filter((_, j) => j !== i) })}
               >
-                ×
+                <X size={15} />
               </button>
             </div>
           ))}
-          <button
-            className="quiet"
-            onClick={() => setDraft({ ...draft, links: [...draft.links, { label: "", url: "" }] })}
-          >
-            + link
-          </button>
+          <div>
+            <button
+              className="quiet"
+              onClick={() =>
+                setDraft({ ...draft, links: [...draft.links, { label: "", url: "" }] })
+              }
+            >
+              + link
+            </button>
+          </div>
         </div>
       </div>
     </details>
@@ -111,15 +117,11 @@ function ProfileCard({ draft, setDraft, save }: ProfileProps) {
 function GpaCard({ roles }: { roles: RoleDetail[] }) {
   const { reload, report } = useVault();
   if (roles.length === 0) {
-    return (
-      <div className="experience">
-        <div className="body muted">Add a School entry below to record a GPA.</div>
-      </div>
-    );
+    return <div className="card muted">Add a School entry below to record a GPA.</div>;
   }
   return (
-    <div className="experience">
-      <div className="body grid-4">
+    <div className="card">
+      <div className="grid-4">
         {roles.map((r) => (
           <div key={r.id}>
             <span className="field-label">
@@ -150,16 +152,14 @@ function GpaCard({ roles }: { roles: RoleDetail[] }) {
 // Jake's does not.
 function InterestsCard({ draft, setDraft, save }: ProfileProps) {
   return (
-    <div className="experience">
-      <div className="body">
-        <span className="field-label">Comma separated — the Simplify layout prints these</span>
-        <input
-          placeholder="Ice hockey, chess, orbital mechanics"
-          value={draft.interests ?? ""}
-          onChange={(e) => setDraft({ ...draft, interests: e.target.value || null })}
-          onBlur={() => save(draft)}
-        />
-      </div>
+    <div className="card">
+      <span className="field-label">Comma separated — the Simplify layout prints these</span>
+      <input
+        placeholder="Ice hockey, chess, orbital mechanics"
+        value={draft.interests ?? ""}
+        onChange={(e) => setDraft({ ...draft, interests: e.target.value || null })}
+        onBlur={() => save(draft)}
+      />
     </div>
   );
 }
@@ -248,8 +248,8 @@ export default function VaultTab() {
   return (
     <VaultCtx.Provider value={{ reload, report }}>
       <div className="col">
-        <div className="row">
-          <span className="muted" style={{ fontSize: 12 }}>
+        <div className="row" style={{ gap: "var(--space-4)" }}>
+          <span className="muted" style={{ fontSize: 13, maxWidth: 520 }}>
             Fields save when they lose focus. Save to commit everything and see what the
             Generate and Base tabs will read.
           </span>
@@ -259,7 +259,9 @@ export default function VaultTab() {
           </button>
         </div>
         {error && <div className="error">{error}</div>}
-        {note && <div className="muted">{note}</div>}
+        {note && (
+          <div style={{ fontSize: 13, color: "var(--color-accent-2-800)" }}>{note}</div>
+        )}
 
         <h3 className="vault-section">Skills</h3>
         <SkillsCard />
@@ -285,12 +287,12 @@ export default function VaultTab() {
               <section key={kind} className="col">
                 <h3 className="vault-section">
                   {label}
-                  <span className="muted">{inSection.length}</span>
+                  <span className="pill">{inSection.length}</span>
                 </h3>
                 {inSection.map((e) => (
                   <ExperienceCard key={e.id} detail={e} />
                 ))}
-                <div className="row">
+                <div>
                   <button className="quiet" onClick={() => addExperience(kind)}>
                     + add
                   </button>

@@ -4,6 +4,7 @@ import { openPath } from "@tauri-apps/plugin-opener";
 import { errorMessage, generate } from "../../ipc";
 import type { GenerationResult, HealthReport } from "../../types";
 import DraftBullets from "../../DraftBullets";
+import { Info } from "../../icons";
 
 type Phase = "idle" | "ingesting" | "generating" | "ready" | "saving";
 
@@ -206,7 +207,7 @@ export default function GenerateTab({
     const r = state.result;
     return (
       <div className="col">
-        <div className="row">
+        <div className="row" style={{ flexWrap: "wrap", gap: "var(--space-2)" }}>
           <div className="title-edit">
             <input
               aria-label="Company"
@@ -241,7 +242,7 @@ export default function GenerateTab({
           >
             Save only
           </button>
-          <button className="danger" onClick={discard}>
+          <button className="quiet" onClick={discard}>
             Discard
           </button>
         </div>
@@ -264,15 +265,21 @@ export default function GenerateTab({
         {state.error && <div className="error">{state.error}</div>}
         {state.saved && <div className="muted">{state.saved}</div>}
         {state.pendingEdits && (
-          <div className="muted">
-            You have edits below that this resume does not have yet — apply them first.
+          <div className="note warn">
+            <Info />
+            <span>
+              You have edits below that this resume does not have yet — apply them first.
+            </span>
           </div>
         )}
 
         {r.retired.length > 0 && (
-          <div className="muted">
-            Left off to reach one page: {r.retired.join(", ")}. Pin an experience in the
-            Vault to keep it regardless.
+          <div className="note">
+            <Info />
+            <span>
+              Left off to reach one page: {r.retired.join(", ")}. Pin an experience in the
+              Vault to keep it regardless.
+            </span>
           </div>
         )}
 
@@ -283,19 +290,23 @@ export default function GenerateTab({
           </div>
         )}
 
-        <embed
-          className="preview"
-          src={`${convertFileSrc(r.pdf_path)}?v=${state.revision}`}
-          type="application/pdf"
-        />
-        <button
-          className="quiet"
-          onClick={() =>
-            openPath(r.pdf_path).catch((e) => dispatch({ type: "failed", error: errorMessage(e) }))
-          }
-        >
-          Open in the system viewer
-        </button>
+        <div className="preview-frame">
+          <embed
+            className="preview"
+            src={`${convertFileSrc(r.pdf_path)}?v=${state.revision}`}
+            type="application/pdf"
+          />
+          <button
+            className="quiet"
+            onClick={() =>
+              openPath(r.pdf_path).catch((e) =>
+                dispatch({ type: "failed", error: errorMessage(e) }),
+              )
+            }
+          >
+            Open in the system viewer
+          </button>
+        </div>
 
         <DraftBullets
           bullets={r.used_bullets}
@@ -307,19 +318,21 @@ export default function GenerateTab({
         />
 
         {r.rejected.length > 0 && (
-          <details className="disclosure">
+          <details className="disclosure quiet">
             <summary>
               {r.rejected.length} rewrite{r.rejected.length > 1 ? "s" : ""} rejected, original
               wording used
             </summary>
-            <ul className="bullet-list">
+            <div className="col" style={{ margin: "var(--space-3) 0 0 22px" }}>
               {r.rejected.map((x, i) => (
-                <li key={i}>
+                <div key={i}>
                   {x.attempted}
-                  <div className="muted">{x.reason}</div>
-                </li>
+                  <div className="muted" style={{ fontSize: 12 }}>
+                    {x.reason}
+                  </div>
+                </div>
               ))}
-            </ul>
+            </div>
           </details>
         )}
       </div>
@@ -344,19 +357,19 @@ export default function GenerateTab({
         </button>
       </div>
 
-      <button
-        className="quiet"
-        style={{ marginTop: 8 }}
-        onClick={() => dispatch({ type: "set", patch: { pasteOpen: !state.pasteOpen } })}
-      >
-        or paste the description
-      </button>
+      <div>
+        <button
+          className="quiet"
+          onClick={() => dispatch({ type: "set", patch: { pasteOpen: !state.pasteOpen } })}
+        >
+          or paste the description
+        </button>
+      </div>
 
       {state.pasteOpen && (
         <textarea
           autoFocus
           rows={12}
-          style={{ marginTop: 8, textAlign: "left" }}
           placeholder="Paste the job description here"
           value={state.jobText}
           onChange={(e) =>
@@ -365,20 +378,19 @@ export default function GenerateTab({
         />
       )}
 
-      {busy && <div className="status-line">{STATUS[state.phase]}</div>}
-      {busy && health && !health.tectonic && (
-        <div className="status-line">Tectonic is not on PATH — the PDF step will fail.</div>
-      )}
-      {state.error && (
-        <div className="error" style={{ marginTop: 16, textAlign: "left" }}>
-          {state.error}
+      {/* Tectonic's warning rides the same line rather than stacking a second card. */}
+      {busy && (
+        <div className="status-line">
+          <span>
+            {STATUS[state.phase]}
+            {health && !health.tectonic && " Tectonic is not on PATH — the PDF step will fail."}
+          </span>
         </div>
       )}
+      {state.error && <div className="error">{state.error}</div>}
       {state.saved && <div className="status-line">{state.saved}</div>}
       {!busy && !state.error && (
-        <div className="status-line" style={{ fontSize: 12 }}>
-          ⌘↵ to generate · everything stays on this machine
-        </div>
+        <div className="hint">⌘↵ to generate · everything stays on this machine</div>
       )}
     </div>
   );

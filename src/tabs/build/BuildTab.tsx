@@ -3,6 +3,7 @@ import { convertFileSrc } from "@tauri-apps/api/core";
 import { base, errorMessage, vault } from "../../ipc";
 import type { BasePreview, ExperienceDetail, ExperienceKind, Template } from "../../types";
 import DraftBullets from "../../DraftBullets";
+import { Info } from "../../icons";
 
 // The entries you pick by hand, in the order the vault holds them. Education and
 // certifications are not offered: they print on every resume regardless.
@@ -81,8 +82,8 @@ export default function BuildTab() {
 
   return (
     <div className="col">
-      <div className="row">
-        <div>
+      <div className="row" style={{ gap: "var(--space-2)", flexWrap: "wrap", alignItems: "flex-end" }}>
+        <div style={{ minWidth: 260 }}>
           <span className="field-label">Template</span>
           <select value={selected} onChange={(e) => setSelected(e.target.value)}>
             {templates.map((t) => (
@@ -110,20 +111,20 @@ export default function BuildTab() {
         const rows = all.filter((e) => e.kind === kind);
         if (rows.length === 0) return null;
         return (
-          <div className="card col" key={kind} style={{ gap: 6 }}>
+          <div className="card col" key={kind} style={{ gap: 2 }}>
             <span className="field-label">{label}</span>
             {rows.map((e) => (
-              <label className="row" key={e.id} style={{ gap: 8 }}>
+              <label className={`pick${picked.has(e.id) ? " on" : ""}`} key={e.id}>
                 <input
                   type="checkbox"
                   checked={picked.has(e.id)}
                   onChange={() => toggle(e.id)}
                 />
-                <strong>{e.org_name}</strong>
-                <span className="muted" style={{ fontSize: 12 }}>
+                <span className="name">{e.org_name}</span>
+                <span className="muted" style={{ fontSize: 13 }}>
                   {e.roles.map((r) => r.title).join(" · ")}
                 </span>
-                {e.is_pinned && <span className="pill on">always printed</span>}
+                {e.is_pinned && <span className="tag good">always printed</span>}
               </label>
             ))}
           </div>
@@ -135,13 +136,13 @@ export default function BuildTab() {
 
       {preview && (
         <>
-          <div className="row">
-            <span className="muted">
+          <div className="row" style={{ gap: "var(--space-2)", flexWrap: "wrap" }}>
+            <span className="muted" style={{ flex: 1 }}>
               {preview.template_name} · {preview.bullet_count} bullets ·{" "}
               {preview.page_count} page{preview.page_count === 1 ? "" : "s"}
             </span>
-            <span style={{ flex: 1 }} />
             <input
+              style={{ maxWidth: 260 }}
               placeholder="Name this resume"
               value={name}
               onChange={(e) => setName(e.target.value)}
@@ -152,14 +153,20 @@ export default function BuildTab() {
             </button>
           </div>
           {pendingEdits && (
-            <div className="muted">
-              You have edits below that this resume does not have yet — apply them first.
+            <div className="note warn">
+              <Info />
+              <span>
+                You have edits below that this resume does not have yet — apply them first.
+              </span>
             </div>
           )}
           {preview.page_count > 1 && (
-            <div className="muted">
-              {preview.page_count} pages — nothing you picked was dropped. Untick an entry, or
-              remove a line below, to reach one.
+            <div className="note warn">
+              <Info />
+              <span>
+                {preview.page_count} pages — nothing you picked was dropped. Untick an entry,
+                or remove a line below, to reach one.
+              </span>
             </div>
           )}
           <DraftBullets
@@ -170,11 +177,13 @@ export default function BuildTab() {
               setRevision((r) => r + 1);
             }}
           />
-          <embed
-            className="preview"
-            src={`${convertFileSrc(preview.pdf_path)}?v=${revision}`}
-            type="application/pdf"
-          />
+          <div className="preview-frame">
+            <embed
+              className="preview"
+              src={`${convertFileSrc(preview.pdf_path)}?v=${revision}`}
+              type="application/pdf"
+            />
+          </div>
         </>
       )}
     </div>

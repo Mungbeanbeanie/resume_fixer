@@ -73,7 +73,7 @@ function RoleBlock({ role }: { role: RoleDetail }) {
             onChange={(e) => setDraft({ ...draft, date_override: e.target.value || null })}
             onBlur={() => save({})}
           />
-          <span className="muted" style={{ fontSize: 11 }}>
+          <span className="field-hint">
             Printed instead of the dates above. Leave every date field blank to print no
             date at all.
           </span>
@@ -84,7 +84,7 @@ function RoleBlock({ role }: { role: RoleDetail }) {
         <BulletRow key={b.id} bullet={b} />
       ))}
 
-      <div className="row" style={{ marginTop: 8 }}>
+      <div className="row" style={{ gap: "var(--space-2)" }}>
         <button
           className="quiet"
           onClick={async () => {
@@ -105,7 +105,7 @@ function RoleBlock({ role }: { role: RoleDetail }) {
           + bullet
         </button>
         <button
-          className="quiet danger"
+          className="quiet subtle"
           onClick={async () => {
             try {
               await vault.deleteRole(role.id);
@@ -162,17 +162,17 @@ export default function ExperienceCard({ detail }: { detail: ExperienceDetail })
     <details className="experience">
       <summary>
         <strong>{detail.org_name}</strong>
-        <span className="pill">{detail.kind}</span>
-        <span className="muted" style={{ fontSize: 12 }}>
+        <span className="tag neutral">{detail.kind}</span>
+        <span className="muted" style={{ fontSize: 13 }}>
           {roleCount} role{roleCount === 1 ? "" : "s"} · {bulletCount} bullet
           {bulletCount === 1 ? "" : "s"}
         </span>
-        {detail.is_pinned && <span className="pill on">always printed</span>}
-        {!detail.is_active && <span className="pill off">hidden</span>}
+        {detail.is_pinned && <span className="tag good">always printed</span>}
+        {!detail.is_active && <span className="tag active">hidden</span>}
       </summary>
 
       <div className="body">
-        <div className="grid-4" style={{ marginTop: 12 }}>
+        <div className="grid-4">
           <div>
             <span className="field-label">Organization</span>
             <input
@@ -212,7 +212,7 @@ export default function ExperienceCard({ detail }: { detail: ExperienceDetail })
           </div>
         </div>
 
-        <div className="grid-2" style={{ marginTop: 12 }}>
+        <div className="grid-2">
           <div>
             <span className="field-label">Link (projects)</span>
             <input
@@ -221,7 +221,7 @@ export default function ExperienceCard({ detail }: { detail: ExperienceDetail })
               onChange={(e) => setDraft({ ...draft, url: e.target.value || null })}
               onBlur={() => save()}
             />
-            <span className="muted" style={{ fontSize: 11 }}>
+            <span className="field-hint">
               Printed as a clickable link in place of the project's dates.
             </span>
           </div>
@@ -233,13 +233,11 @@ export default function ExperienceCard({ detail }: { detail: ExperienceDetail })
               onChange={(e) => setDraft({ ...draft, link_text: e.target.value || null })}
               onBlur={() => save()}
             />
-            <span className="muted" style={{ fontSize: 11 }}>
-              Blank prints the shortened URL.
-            </span>
+            <span className="field-hint">Blank prints the shortened URL.</span>
           </div>
         </div>
 
-        <div style={{ marginTop: 12 }}>
+        <div>
           <span className="field-label">Skills on this experience</span>
           <input
             placeholder="comma separated"
@@ -253,7 +251,7 @@ export default function ExperienceCard({ detail }: { detail: ExperienceDetail })
           <RoleBlock key={r.id} role={r} />
         ))}
 
-        <div className="row" style={{ marginTop: 12 }}>
+        <div className="row" style={{ gap: "var(--space-2)", flexWrap: "wrap" }}>
           <button
             onClick={async () => {
               try {
@@ -288,7 +286,7 @@ export default function ExperienceCard({ detail }: { detail: ExperienceDetail })
           </button>
           <span style={{ flex: 1 }} />
           <button
-            className="danger"
+            className="quiet"
             onClick={async () => {
               try {
                 await vault.deleteExperience(detail.id);

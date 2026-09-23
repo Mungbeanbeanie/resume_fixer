@@ -37,10 +37,10 @@ export default function TemplateEditor({
   }
 
   return (
-    <details className="disclosure">
+    <details className="disclosure quiet template-editor">
       <summary>Edit or paste a template</summary>
-      <div className="col" style={{ gap: 8, marginTop: 8 }}>
-        <div className="row">
+      <div className="col" style={{ gap: "var(--space-2)", marginTop: "var(--space-3)" }}>
+        <div className="row" style={{ gap: "var(--space-2)" }}>
           <input
             placeholder="Template name"
             value={name}
@@ -51,8 +51,7 @@ export default function TemplateEditor({
           </button>
         </div>
         <textarea
-          className="job-text"
-          rows={18}
+          rows={14}
           spellCheck={false}
           placeholder="Paste a .tex.tera template here"
           value={source}

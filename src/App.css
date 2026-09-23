@@ -4,34 +4,51 @@
   height: 100%;
 }
 
+/* ── Top bar ──────────────────────────────────────────────── */
+
 .tabs {
   display: flex;
   align-items: center;
   gap: 4px;
-  padding: 10px 20px;
-  border-bottom: 1px solid var(--border);
-  background: var(--surface);
+  flex-wrap: wrap;
+  padding: var(--space-4) var(--space-6);
 }
 
 .tabs .brand {
-  font-weight: 600;
-  margin-right: 16px;
+  font-family: var(--font-heading);
+  font-size: 21px;
   letter-spacing: -0.01em;
+  margin-right: var(--space-6);
 }
 
 .tabs button {
+  font-family: var(--font-body);
+  font-size: 14px;
   border-color: transparent;
   background: transparent;
-  color: var(--muted);
+  color: var(--color-neutral-800);
+  padding: 7px 16px;
+}
+
+.tabs button:hover:not(:disabled) {
+  background: var(--color-accent-100);
 }
 
 .tabs button[aria-current="true"] {
-  color: var(--text);
-  background: var(--accent-soft);
+  background: var(--color-accent-200);
+  color: var(--color-accent-900);
 }
 
 .tabs .spacer {
   flex: 1;
+}
+
+.tabs .refresh {
+  width: 32px;
+  min-height: 32px;
+  padding: 0;
+  border-color: transparent;
+  color: var(--color-neutral-700);
 }
 
 .health {
@@ -43,12 +60,20 @@
 .page {
   flex: 1;
   overflow: auto;
-  padding: 28px 20px 60px;
+  padding: var(--space-6) var(--space-6) 72px;
 }
 
 .page-inner {
   max-width: 940px;
   margin: 0 auto;
+}
+
+/* The small tracked label over History, Job description, Weak/Strong. */
+.eyebrow {
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-neutral-700);
 }
 
 /* A company and role heading that is editable in place: it reads as a heading until it is
@@ -66,23 +91,31 @@
   field-sizing: content;
   min-width: 14ch;
   max-width: 44ch;
-  padding: 2px 6px;
-  margin-left: -6px;
-  background: transparent;
+  padding: 2px 10px;
+  margin-left: -11px;
+  background: transparent !important;
   border-color: transparent;
+  border-radius: 999px;
+  min-height: 0;
 }
 
 .title-edit input:hover:not(:focus) {
-  border-color: var(--border);
+  border-color: var(--color-divider);
 }
 
 .title-edit input:first-child {
-  font-size: 20px;
-  font-weight: 600;
+  font-family: var(--font-heading);
+  font-size: 28px;
+  line-height: 1.15;
 }
 
 .title-edit input:last-child {
-  color: var(--muted);
+  font-size: 14px;
+  color: var(--color-neutral-700);
+}
+
+.panel .title-edit input:first-child {
+  font-size: 26px;
 }
 
 /* ── Generate ─────────────────────────────────────────────── */
@@ -90,42 +123,186 @@
 .generate-empty {
   max-width: 620px;
   margin: 12vh auto 0;
-  text-align: center;
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
 }
 
 .generate-empty h2 {
-  font-size: 20px;
-  font-weight: 500;
-  margin-bottom: 20px;
+  font-size: 36px;
+  margin-bottom: var(--space-2);
 }
 
 .generate-empty .row {
   align-items: stretch;
+  gap: var(--space-2);
+}
+
+.generate-empty .row input {
+  min-height: 46px;
+  font-size: 15px;
+  padding-inline: 20px;
+}
+
+.generate-empty .row button.primary {
+  padding-inline: 26px;
+  font-size: 15px;
+}
+
+.generate-empty textarea {
+  border-radius: var(--radius-lg);
+  padding: 16px 20px;
+  min-height: 240px;
+}
+
+.hint {
+  font-size: 12px;
+  color: var(--color-neutral-700);
+  padding-left: 4px;
 }
 
 .status-line {
-  text-align: center;
-  color: var(--muted);
-  margin-top: 24px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: var(--space-3) var(--space-4);
+  background: var(--color-surface);
+  border-radius: var(--radius-lg);
+  color: var(--color-neutral-800);
+}
+
+.status-line::before {
+  content: "";
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex: none;
+  background: var(--color-accent-2);
+}
+
+/* Something the app decided for you and is telling you about: sage says it is fine,
+   terracotta says it wants a move from you first. */
+.note {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-lg);
+  background: var(--color-accent-2-100);
+  color: var(--color-accent-2-800);
+  font-size: 13px;
+}
+
+.note.warn {
+  background: var(--color-accent-100);
+  color: var(--color-accent-800);
+}
+
+.note svg {
+  flex: none;
+  margin-top: 2px;
+}
+
+.preview-frame {
+  background: var(--color-surface);
+  border-radius: var(--radius-xl);
+  padding: var(--space-6);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-3);
 }
 
 .preview {
   width: 100%;
   height: 70vh;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  background: var(--surface);
+  border: 0;
+  border-radius: 6px;
+  background: var(--color-neutral-100);
+  box-shadow: var(--shadow-md);
 }
 
 .disclosure {
-  border-top: 1px solid var(--border);
-  padding-top: 12px;
-  margin-top: 16px;
+  padding: var(--space-3) var(--space-4);
+  background: var(--color-surface);
+  border-radius: var(--radius-lg);
 }
 
-.disclosure summary {
+.disclosure > summary {
+  list-style: none;
   cursor: pointer;
-  color: var(--muted);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 4px 0;
+  color: var(--color-text);
+}
+
+.disclosure > summary::-webkit-details-marker {
+  display: none;
+}
+
+/* The one piece of motion in the app: the chevron turns over when the section opens. */
+.disclosure > summary::after,
+.experience > summary::after {
+  content: "";
+  margin-left: auto;
+  width: 8px;
+  height: 8px;
+  flex: none;
+  border-right: 2.5px solid currentColor;
+  border-bottom: 2.5px solid currentColor;
+  border-radius: 1px;
+  transform: rotate(45deg) translateY(-2px);
+  transition: transform 0.15s ease;
+}
+
+.disclosure[open] > summary::after,
+.experience[open] > summary::after {
+  transform: rotate(-135deg) translateY(-2px);
+}
+
+.disclosure > summary .title {
+  font-family: var(--font-heading);
+  font-size: 17px;
+}
+
+.disclosure > summary .meta {
+  font-size: 13px;
+  color: var(--color-neutral-700);
+  flex: 1;
+}
+
+/* No fill, chevron on the left: for a section that is there when wanted and quiet otherwise. */
+.disclosure.quiet {
+  background: transparent;
+  padding: 0 var(--space-4);
+}
+
+.disclosure.quiet > summary {
+  font-size: 13px;
+  color: var(--color-neutral-700);
+  gap: 8px;
+}
+
+.disclosure.quiet > summary::after {
+  margin-left: 0;
+  order: -1;
+  width: 7px;
+  height: 7px;
+}
+
+/* The plus in a circle that opens the track-an-application form. */
+.disclosure .add-circle {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  flex: none;
+  display: grid;
+  place-items: center;
+  background: var(--color-accent-100);
+  color: var(--color-accent-700);
 }
 
 .bullet-list {
@@ -137,44 +314,189 @@
   margin-bottom: 6px;
 }
 
+.draft-bullet {
+  display: flex;
+  gap: var(--space-2);
+  align-items: flex-start;
+}
+
+.draft-bullet .body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.draft-bullet .org {
+  font-size: 12px;
+  color: var(--color-neutral-700);
+}
+
+.draft-bullet textarea {
+  min-height: 56px;
+}
+
+.draft-bullet > button {
+  margin-top: 22px;
+}
+
+/* A line the vault has that this document is not printing. The dashed box says it is not
+   part of the document; the dimming says it has not been asked for either. */
+.draft-bullet .text {
+  border: 1px dashed var(--color-neutral-400);
+  border-radius: var(--radius-md);
+  padding: 10px 14px;
+}
+
+.draft-bullet.spare {
+  opacity: 0.62;
+}
+
 /* ── Library ──────────────────────────────────────────────── */
+
+.funnel-card {
+  background: var(--color-surface);
+  border-radius: var(--radius-xl);
+  padding: var(--space-6);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.funnel-card .headline {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+
+.funnel-card .rate {
+  font-family: var(--font-heading);
+  font-size: 40px;
+  line-height: 1;
+}
+
+.funnel-row {
+  display: grid;
+  grid-template-columns: 88px minmax(0, 1fr) 72px;
+  align-items: center;
+  gap: var(--space-3);
+  font-size: 13px;
+}
+
+.funnel-track {
+  height: 18px;
+  border-radius: 999px;
+  background: var(--color-neutral-200);
+}
+
+.funnel-bar {
+  height: 100%;
+  border-radius: 999px;
+}
+
+.funnel-row .count {
+  font-variant-numeric: tabular-nums;
+}
+
+.funnel-row .count b {
+  font-weight: 600;
+}
+
+.funnel-foot {
+  font-size: 12px;
+  color: var(--color-neutral-700);
+}
 
 table.apps {
   width: 100%;
   border-collapse: collapse;
+  font-size: 14px;
 }
 
 table.apps th {
   text-align: left;
-  font-weight: 500;
-  color: var(--muted);
-  font-size: 12px;
-  padding: 6px 10px;
-  border-bottom: 1px solid var(--border);
+  font-weight: 400;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--color-text) 60%, transparent);
+  padding: var(--space-2) 10px;
+  border-bottom: 1px solid var(--color-divider);
 }
 
 table.apps td {
-  padding: 9px 10px;
-  border-bottom: 1px solid var(--border);
+  padding: 12px 10px;
+  border-bottom: 1px solid color-mix(in srgb, var(--color-text) 8%, transparent);
   vertical-align: middle;
 }
 
+table.apps td:first-child {
+  font-weight: 600;
+}
+
 table.apps tbody tr:hover {
-  background: var(--surface);
+  background: color-mix(in srgb, var(--color-text) 4%, transparent);
   cursor: pointer;
+}
+
+table.apps td button.quiet {
+  padding: 2px 8px;
+  min-height: 0;
+}
+
+/* Dimming the page behind the panel, and closing it on a click outside. */
+.panel-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 9;
+  background: color-mix(in srgb, var(--color-neutral-900) 18%, transparent);
 }
 
 .panel {
   position: fixed;
-  top: 0;
-  right: 0;
-  bottom: 0;
+  top: 12px;
+  right: 12px;
+  bottom: 12px;
   width: min(520px, 90vw);
-  background: var(--surface);
-  border-left: 1px solid var(--border);
-  padding: 20px;
+  background: var(--color-surface);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-lg);
+  padding: var(--space-6);
   overflow: auto;
   z-index: 10;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.panel .close {
+  width: 32px;
+  min-height: 32px;
+  padding: 0;
+  border-color: transparent;
+  color: var(--color-neutral-800);
+}
+
+.history-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+}
+
+.history-row::before {
+  content: "";
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex: none;
+  background: var(--color-accent-2-500);
+}
+
+.history-row .at {
+  margin-left: auto;
+  color: var(--color-neutral-700);
 }
 
 .job-text {
@@ -182,113 +504,300 @@ table.apps tbody tr:hover {
   font-size: 13px;
   max-height: 40vh;
   overflow: auto;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 10px;
-  background: var(--bg);
+  border: 0;
+  border-radius: var(--radius-md);
+  padding: var(--space-3) var(--space-4);
+  background: var(--color-neutral-100);
 }
 
 /* ── Vault ────────────────────────────────────────────────── */
 
 .vault-section {
   display: flex;
-  align-items: baseline;
-  gap: 8px;
-  margin: 18px 0 2px;
-  font-size: 13px;
-  font-weight: 600;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--muted);
-  border-bottom: 1px solid var(--border);
-  padding-bottom: 6px;
+  align-items: center;
+  gap: 10px;
+  margin: var(--space-6) 0 var(--space-1);
+  font-family: var(--font-heading);
+  font-size: 22px;
+  font-weight: 400;
+  letter-spacing: -0.015em;
+  color: var(--color-text);
+}
+
+.vault-section .pill {
+  font-family: var(--font-body);
+  border-color: transparent;
+  background: var(--color-neutral-100);
+  font-size: 11px;
 }
 
 .experience {
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  background: var(--surface);
-  margin-bottom: 10px;
+  border: 0;
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  margin-bottom: var(--space-2);
 }
 
 .experience > summary {
-  padding: 12px 16px;
+  list-style: none;
+  padding: var(--space-3) var(--space-4);
   cursor: pointer;
   display: flex;
   align-items: center;
   gap: 10px;
+  flex-wrap: wrap;
+}
+
+.experience > summary::-webkit-details-marker {
+  display: none;
+}
+
+.experience > summary strong,
+.experience > summary .org {
+  font-weight: 600;
 }
 
 .experience .body {
-  padding: 0 16px 16px;
-  border-top: 1px solid var(--border);
+  padding: 0 var(--space-4) var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
 }
 
 .role {
-  padding: 12px 0;
-  border-bottom: 1px dashed var(--border);
-}
-
-.role:last-child {
-  border-bottom: none;
+  padding: var(--space-4);
+  background: var(--color-neutral-100);
+  border-radius: var(--radius-lg);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
 }
 
 .bullet {
   display: flex;
-  gap: 8px;
+  gap: var(--space-2);
   align-items: flex-start;
-  margin-top: 8px;
 }
 
 .bullet textarea {
-  min-height: 52px;
+  min-height: 56px;
+}
+
+/* The skills line under a bullet: borderless, so it reads as a caption until it is used. */
+.bullet .tag-input {
+  font-size: 12px;
+  min-height: 30px;
+  background: transparent !important;
+  border-color: transparent;
+  color: var(--color-accent-2-800);
+}
+
+.bullet .actions {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
 }
 
 .tags {
   display: flex;
   flex-wrap: wrap;
-  gap: 5px;
+  gap: 6px;
   margin-top: 4px;
 }
 
-/* Layout only — .pill carries the chip look, .pill.on the "this prints" accent. */
+/* A skill chip. The checkbox is the ring on its left. */
 .skill-toggle {
   display: inline-flex;
   align-items: center;
   gap: 6px;
   cursor: pointer;
+  font-size: 13px;
+  padding: 4px 12px 4px 10px;
 }
 
+.skill-toggle.on {
+  background: var(--color-accent-2-200);
+  color: var(--color-accent-2-900);
+}
+
+.skill-toggle input[type="checkbox"] {
+  appearance: none;
+  margin: 0;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 1.5px solid var(--color-neutral-400);
+  display: grid;
+  place-items: center;
+}
+
+.skill-toggle input[type="checkbox"]:checked {
+  border-color: var(--color-accent-2-600);
+  background: var(--color-accent-2-600)
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23f5ead8' stroke-width='4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 6 9 17l-5-5'/%3E%3C/svg%3E")
+    center / 9px no-repeat;
+}
+
+.pair {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: var(--space-3);
+}
+
+.pair > div {
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
+}
+
+.pair .weak {
+  background: var(--color-neutral-200);
+  color: var(--color-neutral-800);
+}
+
+.pair .strong {
+  background: var(--color-accent-2-100);
+}
+
+.pair .eyebrow {
+  display: block;
+}
+
+.pair .strong .eyebrow {
+  color: var(--color-accent-2-700);
+}
 
 .field-label {
   font-size: 12px;
-  color: var(--muted);
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
   display: block;
-  margin-bottom: 3px;
+  margin-bottom: 5px;
+  padding-left: 4px;
+}
+
+.field-hint {
+  font-size: 11px;
+  color: var(--color-neutral-700);
+  padding-left: 14px;
+  margin-top: 4px;
+  display: block;
+}
+
+/* Header links: label, URL, and the × that drops the row. */
+.link-row {
+  display: grid;
+  grid-template-columns: 160px minmax(0, 1fr) 36px;
+  gap: var(--space-2);
+  align-items: center;
+}
+
+.link-row button {
+  width: 36px;
+  min-height: 36px;
+  padding: 0;
+  color: var(--color-neutral-700);
 }
 
 .grid-2 {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
   gap: var(--gap);
 }
 
 .grid-4 {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
   gap: var(--gap);
 }
 
 .empty {
-  text-align: center;
-  color: var(--muted);
-  padding: 40px 0;
+  text-align: left;
+  color: var(--color-neutral-700);
+  padding: var(--space-6) 0;
 }
 
 .error {
-  border: 1px solid var(--danger);
-  border-radius: var(--radius);
-  padding: 10px 12px;
-  color: var(--danger);
-  background: #fdf6f5;
+  border: 0;
+  border-radius: var(--radius-lg);
+  padding: var(--space-3) var(--space-4);
+  color: var(--color-accent-800);
+  background: var(--color-accent-100);
+}
+
+/* ── Base ─────────────────────────────────────────────────── */
+
+.saved-base {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+  background: var(--color-surface);
+  border-radius: 999px;
+  padding: 8px 10px 8px 22px;
+}
+
+.saved-base .name {
+  font-weight: 600;
+}
+
+.saved-base .meta {
+  font-size: 12px;
+  color: var(--color-neutral-700);
+  flex: 1;
+}
+
+.saved-base .actions {
+  display: flex;
+  gap: 2px;
+}
+
+.template-editor textarea {
+  font-family: var(--mono);
+  font-size: 12px;
+  border-radius: var(--radius-lg);
+  padding: 16px 20px;
+  min-height: 260px;
+  background: var(--color-neutral-100);
+}
+
+/* ── Build ────────────────────────────────────────────────── */
+
+/* One entry you can tick into the resume. The row is the label, so the whole pill is the hit
+   target — and it fills sage once it is in. */
+.pick {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  padding: var(--space-2) var(--space-3);
+  border-radius: 999px;
+}
+
+.pick:hover {
+  background: color-mix(in srgb, var(--color-text) 4%, transparent);
+}
+
+.pick.on {
+  background: var(--color-accent-2-100);
+}
+
+.pick input[type="checkbox"] {
+  appearance: none;
+  margin: 0;
+  flex: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 1.5px solid var(--color-neutral-400);
+  background: var(--color-neutral-100);
+}
+
+.pick input[type="checkbox"]:checked {
+  border-color: var(--color-accent-2-600);
+  background: var(--color-accent-2-600)
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23f5ead8' stroke-width='4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 6 9 17l-5-5'/%3E%3C/svg%3E")
+    center / 10px no-repeat;
+}
+
+.pick .name {
+  font-weight: 600;
 }

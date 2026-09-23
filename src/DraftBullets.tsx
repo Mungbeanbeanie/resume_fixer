@@ -143,18 +143,22 @@ export default function DraftBullets({
     (b) => !b.was_reworded && b.rendered_text !== b.source_text,
   ).length;
 
+  const meta = [
+    reworded > 0 && `${reworded} reworded`,
+    edited > 0 && `${edited} edited`,
+    dropped > 0 && `${dropped} dropped to fit`,
+    available.length > 0 && `${available.length} more available`,
+    unprinted.length > 0 && `${unprinted.length} “always print” missing`,
+  ].filter(Boolean);
+
   return (
-    <details className="disclosure">
+    <details className="disclosure" open>
       <summary>
-        {bullets.length} bullets printed
-        {reworded > 0 && `, ${reworded} reworded`}
-        {edited > 0 && `, ${edited} edited`}
-        {dropped > 0 && `, ${dropped} dropped to fit`}
-        {available.length > 0 && `, ${available.length} more available`}
-        {unprinted.length > 0 && `, ${unprinted.length} “always print” missing`}
+        <span className="title">{bullets.length} bullets printed</span>
+        <span className="meta">{meta.join(", ")}</span>
       </summary>
 
-      <div className="col" style={{ gap: 10, marginTop: 10 }}>
+      <div className="col" style={{ marginTop: "var(--space-3)" }}>
         {unprinted.length > 0 && (
           <div className="muted">
             Marked “always print” but not on this resume: {unprinted.join(", ")}. This
@@ -164,15 +168,13 @@ export default function DraftBullets({
         {bullets.map((b) => {
           const e = stateOf(b);
           return (
-            <div className="bullet" key={b.bullet_id}>
-              <div style={{ flex: 1, opacity: e.keep ? 1 : 0.45 }}>
-                <div className="row" style={{ gap: 6, marginBottom: 3 }}>
-                  <span className="muted" style={{ fontSize: 12 }}>
-                    {b.org_name}
-                  </span>
-                  {b.was_reworded && <span className="pill on">reworded</span>}
+            <div className="draft-bullet" key={b.bullet_id}>
+              <div className="body" style={{ opacity: e.keep ? 1 : 0.45 }}>
+                <div className="row" style={{ gap: 6 }}>
+                  <span className="org">{b.org_name}</span>
+                  {b.was_reworded && <span className="tag good">reworded</span>}
                   {!b.was_reworded && b.rendered_text !== b.source_text && (
-                    <span className="pill on">edited</span>
+                    <span className="tag good">edited</span>
                   )}
                 </div>
                 <textarea
@@ -182,7 +184,7 @@ export default function DraftBullets({
                   onChange={(ev) => patch(b, { text: ev.target.value })}
                 />
               </div>
-              <button className="quiet" onClick={() => patch(b, { keep: !e.keep })}>
+              <button className="quiet subtle" onClick={() => patch(b, { keep: !e.keep })}>
                 {e.keep ? "Remove" : "Restore"}
               </button>
             </div>
@@ -194,33 +196,35 @@ export default function DraftBullets({
             <span className="field-label" style={{ marginTop: 6 }}>
               Not on this resume — from the entries it already shows
             </span>
-            {available.map((s) => (
-              <div className="bullet" key={s.bullet_id}>
-                <div style={{ flex: 1, opacity: adds.has(s.bullet_id) ? 1 : 0.55 }}>
-                  <div className="row" style={{ gap: 6, marginBottom: 3 }}>
-                    <span className="muted" style={{ fontSize: 12 }}>
-                      {s.org_name}
-                    </span>
+            {available.map((s) => {
+              const added = adds.has(s.bullet_id);
+              return (
+                <div
+                  className={`draft-bullet${added ? "" : " spare"}`}
+                  key={s.bullet_id}
+                >
+                  <div className="body">
+                    <span className="org">{s.org_name}</span>
+                    <div className="text">{s.text}</div>
                   </div>
-                  <textarea rows={2} value={s.text} disabled readOnly />
+                  <button className="quiet" onClick={() => toggleAdd(s.bullet_id)}>
+                    {added ? "Undo" : "Add"}
+                  </button>
                 </div>
-                <button className="quiet" onClick={() => toggleAdd(s.bullet_id)}>
-                  {adds.has(s.bullet_id) ? "Undo" : "Add"}
-                </button>
-              </div>
-            ))}
+              );
+            })}
           </>
         )}
 
         {error && <div className="error">{error}</div>}
 
-        <div className="row">
+        <div className="row" style={{ marginTop: "var(--space-2)" }}>
           <button className="primary" onClick={apply} disabled={!dirty || busy || keeping === 0}>
             {busy ? "Recompiling…" : "Apply changes"}
           </button>
           {dirty && (
             <button
-              className="quiet"
+              className="quiet subtle"
               onClick={() => {
                 setEdits({});
                 setAdds(new Set());

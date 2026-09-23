@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { health } from "./ipc";
+import { RefreshCw } from "./icons";
 import type { HealthReport } from "./types";
 import BaseTab from "./tabs/base/BaseTab";
 import BuildTab from "./tabs/build/BuildTab";
@@ -63,8 +64,13 @@ export default function App() {
           </button>
         ))}
         <span className="spacer" />
-        <button className="quiet" onClick={refreshHealth} title="Re-check local services">
-          ↻
+        <button
+          className="refresh"
+          onClick={refreshHealth}
+          title="Re-check local services"
+          aria-label="Re-check local services"
+        >
+          <RefreshCw />
         </button>
         <HealthStrip report={report} />
       </nav>

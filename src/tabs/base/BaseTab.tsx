@@ -5,6 +5,7 @@ import { base, errorMessage } from "../../ipc";
 import type { BasePreview, BaseResume, Template } from "../../types";
 import DraftBullets from "../../DraftBullets";
 import TemplateEditor from "./TemplateEditor";
+import { Info } from "../../icons";
 
 // The base resume is the whole vault through one template: no posting, no model, no
 // bullets dropped to reach one page.
@@ -121,8 +122,8 @@ export default function BaseTab() {
 
   return (
     <div className="col">
-      <div className="row">
-        <div>
+      <div className="row" style={{ gap: "var(--space-2)", flexWrap: "wrap", alignItems: "flex-end" }}>
+        <div style={{ minWidth: 260 }}>
           <span className="field-label">Template</span>
           <select value={selected} onChange={(e) => setSelected(e.target.value)}>
             {templates.map((t) => (
@@ -142,7 +143,7 @@ export default function BaseTab() {
           Use for generated resumes
         </button>
         {current && !current.is_builtin && (
-          <button className="quiet danger" onClick={deleteTemplate}>
+          <button className="quiet subtle" onClick={deleteTemplate}>
             Delete template
           </button>
         )}
@@ -155,13 +156,13 @@ export default function BaseTab() {
 
       {preview && (
         <>
-          <div className="row">
-            <span className="muted">
+          <div className="row" style={{ gap: "var(--space-2)", flexWrap: "wrap" }}>
+            <span className="muted" style={{ flex: 1 }}>
               {preview.template_name} · {preview.bullet_count} bullets ·{" "}
               {preview.page_count} page{preview.page_count === 1 ? "" : "s"}
             </span>
-            <span style={{ flex: 1 }} />
             <input
+              style={{ maxWidth: 260 }}
               placeholder="Name this base resume"
               value={name}
               onChange={(e) => setName(e.target.value)}
@@ -178,14 +179,20 @@ export default function BaseTab() {
             </button>
           </div>
           {pendingEdits && (
-            <div className="muted">
-              You have edits below that this resume does not have yet — apply them first.
+            <div className="note warn">
+              <Info />
+              <span>
+                You have edits below that this resume does not have yet — apply them first.
+              </span>
             </div>
           )}
           {preview.retired.length > 0 && (
-            <div className="muted">
-              Left off to reach one page: {preview.retired.join(", ")}. Pin an experience in
-              the Vault to keep it regardless.
+            <div className="note">
+              <Info />
+              <span>
+                Left off to reach one page: {preview.retired.join(", ")}. Pin an experience in
+                the Vault to keep it regardless.
+              </span>
             </div>
           )}
           <DraftBullets
@@ -196,11 +203,13 @@ export default function BaseTab() {
               setRevision((r) => r + 1);
             }}
           />
-          <embed
-            className="preview"
-            src={`${convertFileSrc(preview.pdf_path)}?v=${revision}`}
-            type="application/pdf"
-          />
+          <div className="preview-frame">
+            <embed
+              className="preview"
+              src={`${convertFileSrc(preview.pdf_path)}?v=${revision}`}
+              type="application/pdf"
+            />
+          </div>
         </>
       )}
 
@@ -210,17 +219,16 @@ export default function BaseTab() {
           None yet. Pick a template, build it, and name what comes out.
         </div>
       ) : (
-        <ul className="bullet-list">
+        <div className="col" style={{ gap: "var(--space-2)" }}>
           {saved.map((row) => (
-            <li key={row.id}>
-              <div className="row">
-                <strong>{row.name}</strong>
-                <span className="muted" style={{ fontSize: 12 }}>
-                  {row.template_name} · {row.page_count ?? "?"} page
-                  {row.page_count === 1 ? "" : "s"} ·{" "}
-                  {new Date(row.created_at).toLocaleDateString()}
-                </span>
-                <span style={{ flex: 1 }} />
+            <div className="saved-base" key={row.id}>
+              <span className="name">{row.name}</span>
+              <span className="meta">
+                {row.template_name} · {row.page_count ?? "?"} page
+                {row.page_count === 1 ? "" : "s"} ·{" "}
+                {new Date(row.created_at).toLocaleDateString()}
+              </span>
+              <div className="actions">
                 <button
                   className="quiet"
                   onClick={() =>
@@ -236,13 +244,13 @@ export default function BaseTab() {
                 <button className="quiet" onClick={() => download(row)}>
                   Download
                 </button>
-                <button className="quiet danger" onClick={() => remove(row)}>
+                <button className="quiet subtle" onClick={() => remove(row)}>
                   Delete
                 </button>
               </div>
-            </li>
+            </div>
           ))}
-        </ul>
+        </div>
       )}
     </div>
   );

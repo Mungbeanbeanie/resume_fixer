@@ -8,6 +8,7 @@ import type {
   StatusStats,
 } from "../../types";
 import Funnel from "./Funnel";
+import { Plus, X } from "../../icons";
 
 const STATUSES: ApplicationStatus[] = [
   "saved",
@@ -26,9 +27,15 @@ const STATUSES: ApplicationStatus[] = [
 const label = (status: ApplicationStatus) =>
   status.replace(/_/g, " ").replace(/^oa/, "OA");
 
-function StatusPill({ status }: { status: ApplicationStatus }) {
-  const good = status.startsWith("interview") || status === "offer";
-  return <span className={`pill ${good ? "on" : ""}`}>{label(status)}</span>;
+// Sage for the stages worth reaching, terracotta for the ones still in play, neutral for the
+// ones that went nowhere — so a column of statuses reads without being read.
+function StatusTag({ status }: { status: ApplicationStatus }) {
+  const tone = status.startsWith("interview") || status === "offer"
+    ? "good"
+    : status === "applied" || status.startsWith("oa")
+      ? "active"
+      : "neutral";
+  return <span className={`tag ${tone}`}>{label(status)}</span>;
 }
 
 const BLANK = {
@@ -77,9 +84,14 @@ function TrackForm({
   }
 
   return (
-    <details className="card">
-      <summary>Track an application I already sent</summary>
-      <div className="col" style={{ marginTop: 12 }}>
+    <details className="disclosure">
+      <summary>
+        <span className="add-circle">
+          <Plus />
+        </span>
+        <span style={{ flex: 1 }}>Track an application I already sent</span>
+      </summary>
+      <div className="col" style={{ marginTop: "var(--space-4)" }}>
         <div className="grid-4">
           <div>
             <span className="field-label">Company</span>
@@ -238,7 +250,7 @@ export default function LibraryTab({ active }: { active: boolean }) {
     <div className="col">
       {error && <div className="error">{error}</div>}
       {stats && furthest && (
-        <div className="card">
+        <div className="funnel-card">
           <Funnel furthest={furthest} stats={stats} />
         </div>
       )}
@@ -276,7 +288,7 @@ export default function LibraryTab({ active }: { active: boolean }) {
                 <td>{r.company ?? "—"}</td>
                 <td>{r.role_title ?? "—"}</td>
                 <td>
-                  <StatusPill status={r.status} />
+                  <StatusTag status={r.status} />
                 </td>
                 <td className="muted">{day(r.applied_at ?? r.created_at)}</td>
                 <td>
@@ -316,85 +328,92 @@ export default function LibraryTab({ active }: { active: boolean }) {
       )}
 
       {open && (
-        <aside className="panel col">
-          <div className="row">
-            <div className="title-edit">
-              <input
-                key={`${open.id}-company`}
-                aria-label="Company"
-                placeholder="Untitled"
-                defaultValue={open.company ?? ""}
-                onBlur={(e) => rename("company", e)}
-              />
-              <input
-                key={`${open.id}-role`}
-                aria-label="Role"
-                placeholder="role not stated"
-                defaultValue={open.role_title ?? ""}
-                onBlur={(e) => rename("role_title", e)}
-              />
-            </div>
-            <span style={{ flex: 1 }} />
-            <button className="quiet" onClick={() => setOpen(null)}>
-              close
-            </button>
-          </div>
-
-          <div className="row">
-            <select
-              value={open.status}
-              onChange={(e) => setStatus(open.id, e.target.value as ApplicationStatus)}
-            >
-              {STATUSES.map((s) => (
-                <option key={s} value={s}>
-                  {label(s)}
-                </option>
-              ))}
-            </select>
-            {open.resume?.pdf_path && (
-              <button
-                onClick={() =>
-                  openPath(open.resume!.pdf_path!).catch((e) => setError(errorMessage(e)))
-                }
-              >
-                Open PDF
-              </button>
-            )}
-          </div>
-
-          <div>
-            <span className="field-label">History</span>
-            {open.history.map((h, i) => (
-              <div key={i} className="muted" style={{ fontSize: 12 }}>
-                {label(h.status)} · {new Date(h.changed_at).toLocaleString()}
+        <>
+          <div className="panel-backdrop" onClick={() => setOpen(null)} />
+          <aside className="panel">
+            <div className="row" style={{ alignItems: "flex-start" }}>
+              <div className="title-edit">
+                <input
+                  key={`${open.id}-company`}
+                  aria-label="Company"
+                  placeholder="Untitled"
+                  defaultValue={open.company ?? ""}
+                  onBlur={(e) => rename("company", e)}
+                />
+                <input
+                  key={`${open.id}-role`}
+                  aria-label="Role"
+                  placeholder="role not stated"
+                  defaultValue={open.role_title ?? ""}
+                  onBlur={(e) => rename("role_title", e)}
+                />
               </div>
-            ))}
-          </div>
+              <span style={{ flex: 1 }} />
+              <button className="close" onClick={() => setOpen(null)} aria-label="Close">
+                <X />
+              </button>
+            </div>
 
-          {open.resume && (
-            <div className="muted" style={{ fontSize: 12 }}>
-              {open.resume.model === "uploaded" ? (
-                "uploaded PDF — nothing here generated it"
-              ) : (
-                <>
-                  {open.resume.page_count} page · {open.resume.model} · prompts{" "}
-                  {open.resume.prompt_version}
-                </>
+            <div className="row">
+              <select
+                style={{ maxWidth: 220 }}
+                value={open.status}
+                onChange={(e) => setStatus(open.id, e.target.value as ApplicationStatus)}
+              >
+                {STATUSES.map((s) => (
+                  <option key={s} value={s}>
+                    {label(s)}
+                  </option>
+                ))}
+              </select>
+              {open.resume?.pdf_path && (
+                <button
+                  onClick={() =>
+                    openPath(open.resume!.pdf_path!).catch((e) => setError(errorMessage(e)))
+                  }
+                >
+                  Open PDF
+                </button>
               )}
             </div>
-          )}
 
-          {open.job_text && (
-            <div>
-              <span className="field-label">Job description</span>
-              <div className="job-text">{open.job_text}</div>
+            <div className="col" style={{ gap: 8 }}>
+              <span className="eyebrow">History</span>
+              {open.history.map((h, i) => (
+                <div key={i} className="history-row">
+                  <span>{label(h.status)}</span>
+                  <span className="at">{new Date(h.changed_at).toLocaleString()}</span>
+                </div>
+              ))}
             </div>
-          )}
 
-          <button className="danger" onClick={() => remove(open.id)}>
-            Delete this application
-          </button>
-        </aside>
+            {open.resume && (
+              <div className="muted" style={{ fontSize: 12 }}>
+                {open.resume.model === "uploaded" ? (
+                  "uploaded PDF — nothing here generated it"
+                ) : (
+                  <>
+                    {open.resume.page_count} page · {open.resume.model} · prompts{" "}
+                    {open.resume.prompt_version}
+                  </>
+                )}
+              </div>
+            )}
+
+            {open.job_text && (
+              <div className="col" style={{ gap: 8 }}>
+                <span className="eyebrow">Job description</span>
+                <div className="job-text">{open.job_text}</div>
+              </div>
+            )}
+
+            <div style={{ marginTop: "auto" }}>
+              <button className="quiet" onClick={() => remove(open.id)}>
+                Delete this application
+              </button>
+            </div>
+          </aside>
+        </>
       )}
     </div>
   );
